@@ -70,7 +70,7 @@ namespace Deathwing.Modules
         /// </summary>
         private void BuildFlames()
         {
-            Material material = DeathwingRocks.FlameMaterial();
+            Material material = DeathwingAssets.FlameParticleMaterial();
             if (!material)
             {
                 return;
@@ -89,7 +89,10 @@ namespace Deathwing.Modules
             main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
             // Small enough to sit in the grass rather than block the view of what is standing in the pool.
             main.startSize = new ParticleSystem.MinMaxCurve(0.1f * radius, 0.22f * radius);
-            main.startColor = new ParticleSystem.MinMaxGradient(DeathwingAssets.fireCore, DeathwingAssets.fireEdge);
+            // Overbright so the additive material glows rather than washing into the ground.
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                DeathwingAssets.fireCore * 2.2f,
+                DeathwingAssets.fireEdge * 2.2f);
             main.startRotation3D = true;
             // Spun about the vertical axis only, so each flame is a different silhouette while still
             // standing upright.
@@ -116,8 +119,8 @@ namespace Deathwing.Modules
             colorOverLifetime.color = new ParticleSystem.MinMaxGradient(FlameGradient());
 
             // Separate axes: the flame grows tall from a fixed footprint rather than swelling in every
-            // direction, which is what makes it look anchored to the ground. It also collapses to nothing
-            // at the end of its life, because an opaque lit material cannot be faded out with alpha.
+            // direction, which is what makes it look anchored to the ground, and it collapses at the end of
+            // its life so the fade-out is a flame dying down rather than a shape blinking away.
             ParticleSystem.SizeOverLifetimeModule sizeOverLifetime = flames.sizeOverLifetime;
             sizeOverLifetime.enabled = true;
             sizeOverLifetime.separateAxes = true;
@@ -147,7 +150,15 @@ namespace Deathwing.Modules
             // angle inside their texture, so no billboard mode stands them upright. A generated spike keeps
             // the orientation it was built with.
             renderer.renderMode = ParticleSystemRenderMode.Mesh;
-            renderer.mesh = DeathwingRocks.FlameMesh();
+            // Several widths, picked per particle: a pool of identical spikes looks like spears, while a mix
+            // of sharp tongues and broad sheets covers the ground and reads as fire.
+            renderer.SetMeshes(new[]
+            {
+                DeathwingRocks.FlameMesh(0.16f),
+                DeathwingRocks.FlameMesh(0.34f),
+                DeathwingRocks.FlameMesh(0.6f),
+                DeathwingRocks.FlameMesh(0.95f)
+            });
             renderer.alignment = ParticleSystemRenderSpace.World;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;

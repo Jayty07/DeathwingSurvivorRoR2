@@ -148,6 +148,47 @@ namespace Deathwing.Modules
             }
         }
 
+        /// <summary>
+        /// The material burning enemies are drawn with, or failing that the particle material off a vanilla
+        /// fire effect. Either is additive and unlit, which is what makes it glow: the chassis' lit shader
+        /// renders a small unlit mesh as a black silhouette however brightly its emission is set.
+        /// </summary>
+        internal static Material FlameParticleMaterial()
+        {
+            Material burning = BurnMaterial();
+            if (burning)
+            {
+                return burning;
+            }
+
+            GameObject template = fireImpactEffect ? fireImpactEffect : explosionEffect;
+            if (!template)
+            {
+                return null;
+            }
+
+            foreach (ParticleSystemRenderer renderer in template.GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                if (renderer.sharedMaterial)
+                {
+                    return renderer.sharedMaterial;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// The overlay the game draws over burning enemies. Taken off <see cref="BurnEffectController"/>'s
+        /// own effect definitions rather than an address, so it is whatever the game is currently using.
+        /// </summary>
+        internal static Material BurnMaterial()
+        {
+            BurnEffectController.EffectParams effect =
+                BurnEffectController.strongerBurnEffect ?? BurnEffectController.normalEffect;
+            return effect?.overlayMaterial;
+        }
+
         internal static Gradient FireGradient()
         {
             return new Gradient

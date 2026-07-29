@@ -11,47 +11,33 @@ namespace Deathwing.Modules
     /// </summary>
     internal static class DeathwingRocks
     {
-        private static readonly Color rockAlbedo = new Color(0.14f, 0.11f, 0.10f);
-        private static readonly Color rockEmission = new Color(1.6f, 0.35f, 0.05f);
-
-        private static readonly Color flameAlbedo = new Color(0.22f, 0.03f, 0.01f);
-        private static readonly Color flameEmission = new Color(6.5f, 1.7f, 0.2f);
+        // Charred stone lit by the fire it sits in. Kept well above black: the chassis shader multiplies
+        // this into its own texture, so a near-black tint renders as a silhouette.
+        private static readonly Color rockAlbedo = new Color(0.42f, 0.26f, 0.22f);
+        private static readonly Color rockEmission = new Color(2.4f, 0.6f, 0.08f);
 
         private static Material rockMaterial;
-        private static Material flameMaterial;
-        private static bool materialsResolved;
-
-        internal static Material RockMaterial()
-        {
-            ResolveMaterials();
-            return rockMaterial;
-        }
-
-        internal static Material FlameMaterial()
-        {
-            ResolveMaterials();
-            return flameMaterial;
-        }
+        private static bool rockMaterialResolved;
 
         /// <summary>
-        /// Builds both materials off the chassis' own. A body prefab's renderers have no material assigned:
-        /// the game applies them from the character model's renderer infos when the body spawns, so reading
-        /// `sharedMaterial` off the prefab returns nothing and has to be read from those infos instead.
+        /// Charred stone, built off the chassis' own material. A body prefab's renderers have no material
+        /// assigned: the game applies them from the character model's renderer infos when the body spawns,
+        /// so reading `sharedMaterial` off the prefab returns nothing and it has to come from those infos.
         /// </summary>
-        private static void ResolveMaterials()
+        internal static Material RockMaterial()
         {
-            if (materialsResolved)
+            if (rockMaterialResolved)
             {
-                return;
+                return rockMaterial;
             }
 
-            materialsResolved = true;
+            rockMaterialResolved = true;
 
             Material template = ChassisMaterial();
             if (!template)
             {
-                Log.Warning("No chassis material resolved; burning ground will have no rock or flame meshes.");
-                return;
+                Log.Warning("No chassis material resolved; burning ground will have no rocks.");
+                return null;
             }
 
             rockMaterial = DeathwingAssets.TintedCopy(
@@ -59,15 +45,10 @@ namespace Deathwing.Modules
                 "matDeathwingScorchedRock",
                 rockAlbedo,
                 rockEmission,
-                2f);
-            flameMaterial = DeathwingAssets.TintedCopy(
-                template,
-                "matDeathwingLavaFlame",
-                flameAlbedo,
-                flameEmission,
-                9f);
+                3f);
 
-            Log.Info($"Burning ground materials built from '{template.name}'.");
+            Log.Info($"Rock material built from '{template.name}' (shader '{template.shader?.name}').");
+            return rockMaterial;
         }
 
         private static Material ChassisMaterial()
@@ -107,14 +88,17 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// A tapered spike standing on the origin, used as the mesh for the flame particles. Mesh particles
-        /// keep the mesh's own orientation, so unlike a billboard they cannot end up lying flat or angled
-        /// with the sprite they were drawn from.
+        /// A tapered flame standing on the origin. Mesh particles keep the mesh's own orientation, so unlike
+        /// a billboard they cannot end up lying flat or angled with the sprite they were drawn from.
+        /// Vertices carry UVs down the middle of the flame texture, so an additive particle material lights
+        /// them from base to tip.
         /// </summary>
-        internal static Mesh FlameMesh()
+        /// <param name="width">Base radius. Narrow values give sharp spikes, wide ones broad sheets.</param>
+        internal static Mesh FlameMesh(float width)
         {
             const int sides = 5;
             Vector3[] vertices = new Vector3[sides * 3];
+            Vector2[] uv = new Vector2[sides * 3];
             int[] triangles = new int[sides * 3];
             Vector3 tip = new Vector3(0f, 1f, 0f);
 
@@ -124,9 +108,13 @@ namespace Deathwing.Modules
                 float to = (i + 1) / (float)sides * Mathf.PI * 2f;
                 int baseVertex = i * 3;
 
-                vertices[baseVertex] = new Vector3(Mathf.Cos(from) * 0.22f, 0f, Mathf.Sin(from) * 0.22f);
-                vertices[baseVertex + 1] = new Vector3(Mathf.Cos(to) * 0.22f, 0f, Mathf.Sin(to) * 0.22f);
+                vertices[baseVertex] = new Vector3(Mathf.Cos(from) * width, 0f, Mathf.Sin(from) * width);
+                vertices[baseVertex + 1] = new Vector3(Mathf.Cos(to) * width, 0f, Mathf.Sin(to) * width);
                 vertices[baseVertex + 2] = tip;
+
+                uv[baseVertex] = new Vector2(0.35f, 0.1f);
+                uv[baseVertex + 1] = new Vector2(0.65f, 0.1f);
+                uv[baseVertex + 2] = new Vector2(0.5f, 0.9f);
 
                 triangles[baseVertex] = baseVertex;
                 triangles[baseVertex + 1] = baseVertex + 2;
@@ -135,8 +123,9 @@ namespace Deathwing.Modules
 
             Mesh mesh = new Mesh
             {
-                name = "meshDeathwingFlame",
+                name = $"meshDeathwingFlame{width:0.00}",
                 vertices = vertices,
+                uv = uv,
                 triangles = triangles
             };
             mesh.RecalculateNormals();
@@ -169,12 +158,19 @@ namespace Deathwing.Modules
             for (int i = 0; i < corners.Length; i++)
             {
                 corners[i] += new Vector3(
-                    Random.Range(-0.22f, 0.22f),
-                    Random.Range(-0.22f, 0.22f),
-                    Random.Range(-0.22f, 0.22f));
+                    Random.Range(-0.18f, 0.18f),
+                    Random.Range(-0.12f, 0.12f),
+                    Random.Range(-0.18f, 0.18f));
 
-                // Flattened and splayed: rock half-buried in the ground rather than a floating dice.
-                corners[i].y *= corners[i].y > 0f ? 0.75f : 1.6f;
+                // Broad at the base and narrower on top, so it reads as stone pushed up out of the ground
+                // rather than a block dropped on it.
+                if (corners[i].y > 0f)
+                {
+                    corners[i].x *= 0.6f;
+                    corners[i].z *= 0.6f;
+                }
+
+                corners[i].y *= 0.7f;
             }
 
             int[][] faces =
@@ -261,7 +257,13 @@ namespace Deathwing.Modules
 
                 rock.AddComponent<MeshFilter>().sharedMesh = RockMesh(Random.Range(0, 1000));
                 MeshRenderer renderer = rock.AddComponent<MeshRenderer>();
-                renderer.sharedMaterial = material;
+
+                // The overlay the game draws over burning enemies, layered over the stone so the rocks look
+                // like they are alight rather than merely tinted.
+                Material burning = DeathwingAssets.BurnMaterial();
+                renderer.sharedMaterials = burning
+                    ? new[] { material, burning }
+                    : new[] { material };
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                 UnityEngine.Object.Destroy(rock, lifetime);
