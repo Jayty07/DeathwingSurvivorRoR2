@@ -12,6 +12,8 @@ namespace Deathwing.Modules
     public class DeathwingLavaVisual : MonoBehaviour
     {
         public float radius = 4f;
+        public float lifetime = 6f;
+        public int rockCount = 5;
 
         private Renderer[] borrowedRenderers;
         private Projector[] borrowedProjectors;
@@ -28,6 +30,7 @@ namespace Deathwing.Modules
 
             Suppress();
             BuildFlames();
+            DeathwingRocks.Scatter(transform.position, radius * 0.9f, rockCount, radius * 0.28f, lifetime);
         }
 
         private void Update()

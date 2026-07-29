@@ -121,6 +121,7 @@ namespace Deathwing.Modules
 
                 DeathwingLavaVisual visual = prefab.AddComponent<DeathwingLavaVisual>();
                 visual.radius = 2f * lavaPoolRadiusScale;
+                visual.lifetime = lavaPoolLifetime;
             }
             else
             {
