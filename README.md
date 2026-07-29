@@ -15,8 +15,9 @@ art (see [Replacing the model](#replacing-the-model)).
 | Passive | **Molten Blood** | Up to +40 armor and +40% damage, scaling with missing health. The lower he gets, the hotter he burns. |
 | Primary | **Molten Claw** | Slow two-step claw swipe (320% damage per swing) that ignites. No cancel window until the swing lands. |
 | Secondary | **Molten Boulder** | Lobs an arcing boulder (600% damage) that explodes, ignites and leaves a lava pool. |
+| Secondary (alt) | **Molten Breath** | Held cone of dragonfire, 450% damage per second for up to 3.5s, igniting everything in it. Slows him to a crawl while breathing. |
 | Utility | **Elementium Charge** | Committed forward charge with +200 armor, trampling each enemy once for 500% damage and launching them. |
-| Utility (alt) | **Wings of the Destroyer** | **Flight.** Up to 6s airborne, steered with the camera; hold the key to stay up, hold jump to climb. Press primary while airborne to enter **Dive Slam** — a meteor drop whose blast radius (12–26m) scales with the height fallen, for 700% damage plus lava pools. Unused flight time is partly refunded to the cooldown. |
+| Utility (alt) | **Wings of the Destroyer** | **Flight.** Up to 6s airborne, steered with the camera; press once to take off, press again to land, hold jump to climb. Press primary while airborne to enter **Dive Slam** — a meteor drop whose blast radius (12–26m) scales with the height fallen, for 700% damage plus lava pools. Unused flight time is partly refunded to the cooldown. |
 | Special | **Cataclysm** | Roots him briefly, then splits the ground in three expanding rings of fissures (400% damage each). Enemies standing close eat every ring. |
 
 Stats: 260 HP (+78/level), 30 armor, 6 move speed (vanilla is 7), 16 base damage (vanilla is 12),
@@ -69,7 +70,8 @@ src/Deathwing/
   Modules/
     Tuning.cs                 every gameplay number, bound to the BepInEx config
     Tokens.cs                 language tokens and skill descriptions
-    DeathwingAssets.cs        fault-tolerant Addressables lookups + molten materials
+    DeathwingAssets.cs        fault-tolerant Addressables lookups + material tinting
+    DeathwingTint.cs          recolours the model after the skin system has applied its materials
     Buffs.cs                  Elementium Plating (the +200 armor buff)
     Projectiles.cs            molten boulder and lava pool, cloned from vanilla projectiles
     DeathwingBody.cs          the body prefab: stats, capsule, camera, hitboxes, materials
@@ -86,6 +88,13 @@ rescaled (1.9x, including the character capsule and the KinematicCharacterMotor)
 and given its own hitbox groups and skill families. Nothing on the original Commando assets is
 mutated. The trade-off is that the placeholder silhouette is a large, glowing, black-and-orange
 Commando rather than a dragon.
+
+Two details of that clone matter. `ModelLocator.modelBaseTransform` is what gets scaled, not the model
+itself, so the aim origin and muzzle transforms stay in the layout the chassis expects — scaling the
+model moves them and skills start firing from the wrong place. And `ModelSkinController` is left alone:
+the chassis relies on it to assign its materials during spawn, so the tint cannot be baked into the
+prefab. `DeathwingTint` instead waits for the skin to apply and then recolours each renderer by copying
+its own live material, which preserves the shader and textures whatever chassis it came from.
 
 **Nothing hard-fails on a missing asset.** Every vanilla asset is fetched through
 `DeathwingAssets.Load<T>(params string[] keys)`, which tries each address in turn and returns null
@@ -112,8 +121,10 @@ is silently ignored by the game, so they are safe to swap for a custom bank.
 
 ## Verification status
 
-The mod compiles clean against the RoR2 1.4.1 assemblies, and all game API usage is therefore
-type-checked. It has **not** been run inside the game — that needs a licensed Risk of Rain 2 install,
-which is not available on the machine this was written on. Expect to tune skill timings, animation
-state names and effect addresses on the first in-game run; the BepInEx log will name any address that
-failed to resolve.
+Compiles clean against the RoR2 1.4.1 assemblies, and has been loaded and played in-game: the survivor
+registers, shows up in character select with working icons, and his skills fire. Development happens on
+a machine with no Risk of Rain 2 install, so in-game verification comes from the repo owner's BepInEx
+log and play-testing; expect skill timings and animation state names to keep being tuned that way.
+
+If the model ever renders wrong, set `Tint Model = false` in `BepInEx/config/com.jayty07.deathwing.cfg`
+to fall back to the untouched chassis materials — that isolates the tint from the rest of the setup.
