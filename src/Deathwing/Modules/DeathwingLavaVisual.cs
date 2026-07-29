@@ -65,12 +65,12 @@ namespace Deathwing.Modules
         /// <summary>
         /// Fire rooted in the ground: each particle is planted where it spawns, stretches upwards as it
         /// burns and fades out rather than travelling. Moving particles read as debris being thrown around
-        /// instead of ground that is on fire, and the flame sprite is only convincing while it stands
-        /// upright, so it is stretched on Y alone and kept vertical rather than facing the camera.
+        /// instead of ground that is on fire, and it is drawn as an upright mesh so a flame can never lie
+        /// flat or come out angled the way a borrowed sprite does.
         /// </summary>
         private void BuildFlames()
         {
-            Material material = DeathwingAssets.FlameParticleMaterial();
+            Material material = DeathwingRocks.FlameMaterial();
             if (!material)
             {
                 return;
@@ -87,7 +87,7 @@ namespace Deathwing.Modules
             main.loop = true;
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.3f * radius, 0.55f * radius);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.35f * radius, 0.7f * radius);
             main.startColor = new ParticleSystem.MinMaxGradient(DeathwingAssets.fireCore, DeathwingAssets.fireEdge);
             main.startRotation = new ParticleSystem.MinMaxCurve(0f);
             main.gravityModifier = 0f;
@@ -105,32 +105,44 @@ namespace Deathwing.Modules
             shape.radius = radius;
             shape.rotation = new Vector3(90f, 0f, 0f);
 
-            // Fades to nothing so a flame dies out instead of vanishing mid-burn.
             ParticleSystem.ColorOverLifetimeModule colorOverLifetime = flames.colorOverLifetime;
             colorOverLifetime.enabled = true;
             colorOverLifetime.color = new ParticleSystem.MinMaxGradient(FlameGradient());
 
             // Separate axes: the flame grows tall from a fixed footprint rather than swelling in every
-            // direction, which is what makes it look anchored to the ground.
+            // direction, which is what makes it look anchored to the ground. It also collapses to nothing
+            // at the end of its life, because an opaque lit material cannot be faded out with alpha.
             ParticleSystem.SizeOverLifetimeModule sizeOverLifetime = flames.sizeOverLifetime;
             sizeOverLifetime.enabled = true;
             sizeOverLifetime.separateAxes = true;
-            sizeOverLifetime.x = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.7f));
+            sizeOverLifetime.x = new ParticleSystem.MinMaxCurve(
+                1f,
+                new AnimationCurve(
+                    new Keyframe(0f, 1f),
+                    new Keyframe(0.7f, 0.7f),
+                    new Keyframe(1f, 0f)));
             sizeOverLifetime.y = new ParticleSystem.MinMaxCurve(
                 1f,
                 new AnimationCurve(
                     new Keyframe(0f, 0.3f),
-                    new Keyframe(0.45f, 1.4f),
-                    new Keyframe(1f, 1.7f)));
-            sizeOverLifetime.z = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.7f));
+                    new Keyframe(0.5f, 1.5f),
+                    new Keyframe(0.85f, 1.6f),
+                    new Keyframe(1f, 0f)));
+            sizeOverLifetime.z = new ParticleSystem.MinMaxCurve(
+                1f,
+                new AnimationCurve(
+                    new Keyframe(0f, 1f),
+                    new Keyframe(0.7f, 0.7f),
+                    new Keyframe(1f, 0f)));
 
             ParticleSystemRenderer renderer = holder.GetComponent<ParticleSystemRenderer>();
             renderer.sharedMaterial = material;
-            // Billboards that stay upright: view alignment let the sprite lie flat on the ground when the
-            // camera looked down at the pool, which is why the flames appeared to be on their side.
-            renderer.renderMode = ParticleSystemRenderMode.VerticalBillboard;
+            // Mesh particles rather than sprites: the flame sprites the game ships with are drawn at an
+            // angle inside their texture, so no billboard mode stands them upright. A generated spike keeps
+            // the orientation it was built with.
+            renderer.renderMode = ParticleSystemRenderMode.Mesh;
+            renderer.mesh = DeathwingRocks.FlameMesh();
             renderer.alignment = ParticleSystemRenderSpace.World;
-            renderer.pivot = new Vector3(0f, 0.5f, 0f);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 

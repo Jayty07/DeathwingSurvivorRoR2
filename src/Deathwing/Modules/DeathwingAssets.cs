@@ -148,30 +148,6 @@ namespace Deathwing.Modules
             }
         }
 
-        /// <summary>
-        /// A particle material harvested from a vanilla fire effect. Particles need a material to draw at
-        /// all, and the game's shaders are not available to construct one from scratch, so the closest
-        /// thing to a blank flame sprite the game ships with is reused.
-        /// </summary>
-        internal static Material FlameParticleMaterial()
-        {
-            GameObject template = fireImpactEffect ? fireImpactEffect : explosionEffect;
-            if (!template)
-            {
-                return null;
-            }
-
-            foreach (ParticleSystemRenderer renderer in template.GetComponentsInChildren<ParticleSystemRenderer>(true))
-            {
-                if (renderer.sharedMaterial)
-                {
-                    return renderer.sharedMaterial;
-                }
-            }
-
-            return null;
-        }
-
         internal static Gradient FireGradient()
         {
             return new Gradient

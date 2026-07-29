@@ -14,46 +14,134 @@ namespace Deathwing.Modules
         private static readonly Color rockAlbedo = new Color(0.14f, 0.11f, 0.10f);
         private static readonly Color rockEmission = new Color(1.6f, 0.35f, 0.05f);
 
+        private static readonly Color flameAlbedo = new Color(0.35f, 0.06f, 0.02f);
+        private static readonly Color flameEmission = new Color(4f, 1.1f, 0.15f);
+
         private static Material rockMaterial;
-        private static bool rockMaterialResolved;
+        private static Material flameMaterial;
+        private static bool materialsResolved;
 
         internal static Material RockMaterial()
         {
-            if (rockMaterialResolved)
+            ResolveMaterials();
+            return rockMaterial;
+        }
+
+        internal static Material FlameMaterial()
+        {
+            ResolveMaterials();
+            return flameMaterial;
+        }
+
+        /// <summary>
+        /// Builds both materials off the chassis' own. A body prefab's renderers have no material assigned:
+        /// the game applies them from the character model's renderer infos when the body spawns, so reading
+        /// `sharedMaterial` off the prefab returns nothing and has to be read from those infos instead.
+        /// </summary>
+        private static void ResolveMaterials()
+        {
+            if (materialsResolved)
             {
-                return rockMaterial;
+                return;
             }
 
-            rockMaterialResolved = true;
+            materialsResolved = true;
 
+            Material template = ChassisMaterial();
+            if (!template)
+            {
+                Log.Warning("No chassis material resolved; burning ground will have no rock or flame meshes.");
+                return;
+            }
+
+            rockMaterial = DeathwingAssets.TintedCopy(
+                template,
+                "matDeathwingScorchedRock",
+                rockAlbedo,
+                rockEmission,
+                2f);
+            flameMaterial = DeathwingAssets.TintedCopy(
+                template,
+                "matDeathwingLavaFlame",
+                flameAlbedo,
+                flameEmission,
+                6f);
+
+            Log.Info($"Burning ground materials built from '{template.name}'.");
+        }
+
+        private static Material ChassisMaterial()
+        {
             GameObject commandoBody = DeathwingAssets.Load<GameObject>(DeathwingAssets.commandoBodyKey);
             if (!commandoBody)
             {
                 return null;
             }
 
+            CharacterModel model = commandoBody.GetComponentInChildren<CharacterModel>(true);
+            if (model != null && model.baseRendererInfos != null)
+            {
+                foreach (CharacterModel.RendererInfo info in model.baseRendererInfos)
+                {
+                    if (info.defaultMaterial)
+                    {
+                        return info.defaultMaterial;
+                    }
+
+                    if (info.renderer && info.renderer.sharedMaterial)
+                    {
+                        return info.renderer.sharedMaterial;
+                    }
+                }
+            }
+
             foreach (Renderer renderer in commandoBody.GetComponentsInChildren<Renderer>(true))
             {
-                if (renderer is ParticleSystemRenderer || !renderer.sharedMaterial)
+                if (!(renderer is ParticleSystemRenderer) && renderer.sharedMaterial)
                 {
-                    continue;
+                    return renderer.sharedMaterial;
                 }
-
-                rockMaterial = DeathwingAssets.TintedCopy(
-                    renderer.sharedMaterial,
-                    "matDeathwingScorchedRock",
-                    rockAlbedo,
-                    rockEmission,
-                    2f);
-                break;
             }
 
-            if (!rockMaterial)
+            return null;
+        }
+
+        /// <summary>
+        /// A tapered spike standing on the origin, used as the mesh for the flame particles. Mesh particles
+        /// keep the mesh's own orientation, so unlike a billboard they cannot end up lying flat or angled
+        /// with the sprite they were drawn from.
+        /// </summary>
+        internal static Mesh FlameMesh()
+        {
+            const int sides = 5;
+            Vector3[] vertices = new Vector3[sides * 3];
+            int[] triangles = new int[sides * 3];
+            Vector3 tip = new Vector3(0f, 1f, 0f);
+
+            for (int i = 0; i < sides; i++)
             {
-                Log.Warning("No material found for Deathwing's rocks; burning ground will be flames only.");
+                float from = i / (float)sides * Mathf.PI * 2f;
+                float to = (i + 1) / (float)sides * Mathf.PI * 2f;
+                int baseVertex = i * 3;
+
+                vertices[baseVertex] = new Vector3(Mathf.Cos(from) * 0.35f, 0f, Mathf.Sin(from) * 0.35f);
+                vertices[baseVertex + 1] = new Vector3(Mathf.Cos(to) * 0.35f, 0f, Mathf.Sin(to) * 0.35f);
+                vertices[baseVertex + 2] = tip;
+
+                triangles[baseVertex] = baseVertex;
+                triangles[baseVertex + 1] = baseVertex + 2;
+                triangles[baseVertex + 2] = baseVertex + 1;
             }
 
-            return rockMaterial;
+            Mesh mesh = new Mesh
+            {
+                name = "meshDeathwingFlame",
+                vertices = vertices,
+                triangles = triangles
+            };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         /// <summary>
