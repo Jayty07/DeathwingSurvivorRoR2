@@ -71,6 +71,11 @@ namespace Deathwing.Modules
                 return null;
             }
 
+            if (source.TryGetComponent(out ProjectileImpactExplosion sourceExplosion))
+            {
+                DeathwingAssets.AdoptEffectsFrom(sourceExplosion.explosionEffect, sourceExplosion.impactEffect);
+            }
+
             GameObject prefab = PrefabAPI.InstantiateClone(source, "DeathwingMoltenBoulder");
             prefab.transform.localScale *= 2.2f;
 

@@ -28,17 +28,31 @@ namespace Deathwing.Modules
                 "RoR2/Base/Common/VFX/OmniExplosionVFXQuick.prefab",
                 "RoR2/Base/Common/VFX/OmniExplosionVFX.prefab");
 
-            fireImpactEffect = Load<GameObject>(
-                "RoR2/Base/Common/VFX/OmniImpactVFXFire.prefab",
-                "RoR2/Base/Common/VFX/OmniImpactVFX.prefab");
+            // Every effect falls back to the explosion that is known to resolve, so a skill never
+            // silently loses all of its feedback.
+            fireImpactEffect = Load<GameObject>("RoR2/Base/Common/VFX/OmniImpactVFX.prefab") ?? explosionEffect;
+            eruptionEffect = explosionEffect;
+            roarEffect = explosionEffect;
+        }
 
-            eruptionEffect = Load<GameObject>(
-                "RoR2/Base/MagmaWorm/MagmaWormBurrowEffect.prefab",
-                "RoR2/Base/Common/VFX/OmniExplosionVFX.prefab");
+        /// <summary>
+        /// Adopts effects off a prefab that already resolved. Vanilla projectiles carry effects that are
+        /// guaranteed to be registered in the effect catalog, which is more reliable than guessing at
+        /// effect addresses.
+        /// </summary>
+        internal static void AdoptEffectsFrom(GameObject explosionSource, GameObject impactSource)
+        {
+            if (explosionSource)
+            {
+                explosionEffect = explosionSource;
+                eruptionEffect = explosionSource;
+                roarEffect = explosionSource;
+            }
 
-            roarEffect = Load<GameObject>(
-                "RoR2/Base/Titan/TitanFistImpact.prefab",
-                "RoR2/Base/Common/VFX/OmniExplosionVFX.prefab");
+            if (impactSource)
+            {
+                fireImpactEffect = impactSource;
+            }
         }
 
         /// <summary>Tries each address in order, returning the first asset that resolves.</summary>

@@ -235,9 +235,11 @@ namespace Deathwing.Modules
 
             // The menu only needs the mesh and its idle animation; gameplay logic on the clone would
             // otherwise run without a body to belong to. Animator is not a MonoBehaviour, so it stays.
+            // ChildLocator is kept because components like FootstepHandler declare it as required, and
+            // Unity refuses to remove a component another one depends on.
             foreach (MonoBehaviour behaviour in display.GetComponentsInChildren<MonoBehaviour>(true))
             {
-                if (behaviour is CharacterModel)
+                if (behaviour is CharacterModel || behaviour is ChildLocator)
                 {
                     continue;
                 }
