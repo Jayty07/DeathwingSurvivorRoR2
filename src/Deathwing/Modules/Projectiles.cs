@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using R2API;
 using RoR2;
 using RoR2.Projectile;
@@ -45,6 +46,52 @@ namespace Deathwing.Modules
             return null;
         }
 
+        /// <summary>
+        /// Removes a cloned projectile's own artwork. Whole child objects are destroyed rather than their
+        /// renderers disabled: the acid pool draws itself with both particles and a ground projector, and
+        /// its scripts switch those back on as the pool grows.
+        /// </summary>
+        private static void StripVisuals(GameObject prefab)
+        {
+            List<GameObject> doomed = new List<GameObject>();
+
+            foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+            {
+                if (IsExpendable(prefab, renderer.gameObject))
+                {
+                    doomed.Add(renderer.gameObject);
+                }
+                else
+                {
+                    renderer.enabled = false;
+                }
+            }
+
+            foreach (Projector projector in prefab.GetComponentsInChildren<Projector>(true))
+            {
+                if (IsExpendable(prefab, projector.gameObject))
+                {
+                    doomed.Add(projector.gameObject);
+                }
+                else
+                {
+                    projector.enabled = false;
+                }
+            }
+
+            foreach (GameObject child in doomed)
+            {
+                UnityEngine.Object.Destroy(child);
+            }
+        }
+
+        /// <summary>
+        /// Whether a child object exists purely to be looked at. Anything carrying the projectile's hitbox
+        /// stays, or the pool would stop dealing damage along with looking different.
+        /// </summary>
+        private static bool IsExpendable(GameObject prefab, GameObject child) =>
+            child != prefab && !child.GetComponent<Collider>();
+
         private static GameObject CreateLavaPool()
         {
             // Fire-coloured damage zones are preferred over Acrid's acid: recolouring only reaches a
@@ -89,14 +136,10 @@ namespace Deathwing.Modules
             // pool is drawn out of Deathwing's fire effect instead.
             if (source.name.IndexOf("Acid", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
-                {
-                    renderer.enabled = false;
-                }
+                StripVisuals(prefab);
 
                 DeathwingLavaVisual visual = prefab.AddComponent<DeathwingLavaVisual>();
-                visual.radius = 3f * lavaPoolRadiusScale;
-                visual.scale = 1.4f;
+                visual.radius = 2f * lavaPoolRadiusScale;
             }
 
             ContentAddition.AddProjectile(prefab);

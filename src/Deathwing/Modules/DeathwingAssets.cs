@@ -21,6 +21,7 @@ namespace Deathwing.Modules
 
         internal static GameObject explosionEffect;
         internal static GameObject boulderExplosionEffect;
+        internal static GameObject emberEffect;
         internal static GameObject fireImpactEffect;
         internal static GameObject eruptionEffect;
         internal static GameObject roarEffect;
@@ -43,6 +44,8 @@ namespace Deathwing.Modules
             eruptionEffect = CreateFireEffect(explosionSource, "DeathwingEruptionEffect", 2.6f);
             roarEffect = CreateFireEffect(explosionSource, "DeathwingRoarEffect", 2.2f);
             fireImpactEffect = CreateFireEffect(impactSource, "DeathwingFireImpactEffect", 2.2f) ?? explosionEffect;
+            // Burning ground smoulders; it does not detonate every third of a second.
+            emberEffect = CreateFireEffect(impactSource, "DeathwingEmberEffect", 0.35f) ?? fireImpactEffect;
         }
 
         /// <summary>
@@ -94,12 +97,9 @@ namespace Deathwing.Modules
                     Material copy = UnityEngine.Object.Instantiate(materials[i]);
                     copy.name = materials[i].name + "Deathwing";
 
-                    // Several of the game's effect shaders take their colour from a remap ramp texture
-                    // rather than a colour property, which is why tinting alone left Acrid's acid pool
-                    // green. Swapping the ramp for a fire one is what actually recolours those.
-                    TrySetTexture(copy, "_RemapTex", FireRamp);
-                    TrySetTexture(copy, "_ColorRamp", FireRamp);
-                    TrySetTexture(copy, "_Ramp", FireRamp);
+                    // Only colour properties are touched here. The remap ramp textures these shaders read
+                    // carry their alpha as well as their colour, so substituting one turns every effect
+                    // into an opaque black card.
 
                     // The colour lives under a different property name depending on which shader the
                     // borrowed effect uses, so every plausible one is set.
@@ -122,7 +122,6 @@ namespace Deathwing.Modules
                 {
                     Material trail = UnityEngine.Object.Instantiate(particleRenderer.trailMaterial);
                     trail.name = particleRenderer.trailMaterial.name + "Deathwing";
-                    TrySetTexture(trail, "_RemapTex", FireRamp);
                     TrySetColor(trail, "_TintColor", fireEdge);
                     TrySetColor(trail, "_Color", fireEdge);
                     particleRenderer.trailMaterial = trail;
@@ -235,50 +234,6 @@ namespace Deathwing.Modules
             if (material.HasProperty(property))
             {
                 material.SetColor(property, value);
-            }
-        }
-
-        private static Texture2D fireRamp;
-
-        /// <summary>
-        /// A black-to-yellow ramp, generated rather than loaded: the game's colour ramps are not
-        /// reliably addressable, and a gradient is cheap enough to build.
-        /// </summary>
-        private static Texture2D FireRamp
-        {
-            get
-            {
-                if (fireRamp)
-                {
-                    return fireRamp;
-                }
-
-                const int width = 128;
-                fireRamp = new Texture2D(width, 1, TextureFormat.RGBA32, false)
-                {
-                    name = "texDeathwingFireRamp",
-                    wrapMode = TextureWrapMode.Clamp
-                };
-
-                for (int i = 0; i < width; i++)
-                {
-                    float t = (float)i / (width - 1);
-                    Color color = t < 0.5f
-                        ? Color.Lerp(new Color(0.08f, 0.01f, 0f), fireEdge, t * 2f)
-                        : Color.Lerp(fireEdge, new Color(1f, 0.95f, 0.55f), (t - 0.5f) * 2f);
-                    fireRamp.SetPixel(i, 0, color);
-                }
-
-                fireRamp.Apply();
-                return fireRamp;
-            }
-        }
-
-        private static void TrySetTexture(Material material, string property, Texture texture)
-        {
-            if (texture && material.HasProperty(property))
-            {
-                material.SetTexture(property, texture);
             }
         }
 

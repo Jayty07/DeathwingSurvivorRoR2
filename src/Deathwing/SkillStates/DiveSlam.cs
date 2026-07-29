@@ -20,7 +20,7 @@ namespace Deathwing.SkillStates
         public static float maxBlastRadius = 26f;
         public static float damageCoefficient = 7f;
         public static float blastForce = 4000f;
-        public static int lavaPoolCount = 5;
+        public static int lavaPoolCount = 3;
 
         private float startHeight;
         private bool hasLanded;
