@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using R2API;
 using RoR2;
 using RoR2.Projectile;
@@ -47,50 +46,28 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Removes a cloned projectile's own artwork. Whole child objects are destroyed rather than their
-        /// renderers disabled: the acid pool draws itself with both particles and a ground projector, and
-        /// its scripts switch those back on as the pool grows.
+        /// A projectile's visible body is not part of the projectile: it lives in a separate ghost prefab
+        /// that the controller instantiates locally, which is why recolouring the projectile itself left
+        /// Acrid's green pool and the engineer's green grenade untouched. The ghost is cloned so it can be
+        /// recoloured, or dropped entirely when its artwork is the wrong colour beyond tinting.
         /// </summary>
-        private static void StripVisuals(GameObject prefab)
+        private static void ReplaceGhost(GameObject prefab, string name, bool discard)
         {
-            List<GameObject> doomed = new List<GameObject>();
-
-            foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+            if (!prefab.TryGetComponent(out ProjectileController controller) || !controller.ghostPrefab)
             {
-                if (IsExpendable(prefab, renderer.gameObject))
-                {
-                    doomed.Add(renderer.gameObject);
-                }
-                else
-                {
-                    renderer.enabled = false;
-                }
+                return;
             }
 
-            foreach (Projector projector in prefab.GetComponentsInChildren<Projector>(true))
+            if (discard)
             {
-                if (IsExpendable(prefab, projector.gameObject))
-                {
-                    doomed.Add(projector.gameObject);
-                }
-                else
-                {
-                    projector.enabled = false;
-                }
+                controller.ghostPrefab = null;
+                return;
             }
 
-            foreach (GameObject child in doomed)
-            {
-                UnityEngine.Object.Destroy(child);
-            }
+            GameObject ghost = PrefabAPI.InstantiateClone(controller.ghostPrefab, name, false);
+            DeathwingAssets.Recolor(ghost);
+            controller.ghostPrefab = ghost;
         }
-
-        /// <summary>
-        /// Whether a child object exists purely to be looked at. Anything carrying the projectile's hitbox
-        /// stays, or the pool would stop dealing damage along with looking different.
-        /// </summary>
-        private static bool IsExpendable(GameObject prefab, GameObject child) =>
-            child != prefab && !child.GetComponent<Collider>();
 
         private static GameObject CreateLavaPool()
         {
@@ -131,15 +108,23 @@ namespace Deathwing.Modules
             // Acrid's pool is acid green; recolouring it is what turns it into lava.
             DeathwingAssets.Recolor(prefab);
 
-            // Acid's green comes from its textures rather than a colour property, so a tint alone leaves
-            // it olive. When that is the prefab we ended up with, its own visuals are dropped and the
-            // pool is drawn out of Deathwing's fire effect instead.
+            // Acid's green is in its artwork rather than in a material colour, so when that is the prefab
+            // we ended up with, its visuals are dropped outright and the pool is drawn with embers.
             if (source.name.IndexOf("Acid", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                StripVisuals(prefab);
+                ReplaceGhost(prefab, "DeathwingLavaPoolGhost", discard: true);
+
+                if (dotZone)
+                {
+                    dotZone.impactEffect = DeathwingAssets.emberEffect;
+                }
 
                 DeathwingLavaVisual visual = prefab.AddComponent<DeathwingLavaVisual>();
                 visual.radius = 2f * lavaPoolRadiusScale;
+            }
+            else
+            {
+                ReplaceGhost(prefab, "DeathwingLavaPoolGhost", discard: false);
             }
 
             ContentAddition.AddProjectile(prefab);
@@ -201,6 +186,7 @@ namespace Deathwing.Modules
             }
 
             DeathwingAssets.Recolor(prefab);
+            ReplaceGhost(prefab, "DeathwingMoltenBoulderGhost", discard: false);
             ContentAddition.AddProjectile(prefab);
             return prefab;
         }
