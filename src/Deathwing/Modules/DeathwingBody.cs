@@ -56,9 +56,8 @@ namespace Deathwing.Modules
             body.autoCalculateLevelStats = false;
             body.baseMaxHealth = Tuning.baseHealth.Value;
             body.levelMaxHealth = Tuning.levelHealth.Value;
-            // A slow character cannot outrun a bad opening, so the durability he trades speed for has
-            // to be there from the first stage: high regen and a large health pool carry the early game
-            // where items have not caught up yet.
+            // A slow character cannot outrun a bad opening, so the durability he trades speed for has to
+            // be there from the first stage rather than waiting on items.
             body.baseRegen = Tuning.baseRegen.Value;
             body.levelRegen = 0.3f;
             body.baseArmor = Tuning.baseArmor.Value;
