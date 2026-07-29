@@ -14,9 +14,6 @@ namespace Deathwing.Modules
     {
         internal const string commandoBodyKey = "RoR2/Base/Commando/CommandoBody.prefab";
 
-        internal static Material moltenSkinMaterial;
-        internal static Material rockSkinMaterial;
-
         internal static GameObject explosionEffect;
         internal static GameObject fireImpactEffect;
         internal static GameObject eruptionEffect;
@@ -76,16 +73,6 @@ namespace Deathwing.Modules
 
             Log.Warning($"None of the addresses [{string.Join(", ", keys)}] resolved to a {typeof(T).Name}.");
             return null;
-        }
-
-        /// <summary>
-        /// Builds Deathwing's materials from a material already shipped with the game so the
-        /// Hopoo shader (and its lighting/overlay support) is preserved.
-        /// </summary>
-        internal static void CreateMaterials(Material template)
-        {
-            moltenSkinMaterial = TintedCopy(template, "matDeathwingMolten", new Color(0.32f, 0.05f, 0.03f), new Color(3.4f, 0.75f, 0.12f), 3.5f);
-            rockSkinMaterial = TintedCopy(template, "matDeathwingElementium", new Color(0.16f, 0.14f, 0.13f), new Color(0.9f, 0.25f, 0.05f), 1.1f);
         }
 
         internal static Material TintedCopy(Material template, string name, Color albedo, Color emissionColor, float emissionPower)

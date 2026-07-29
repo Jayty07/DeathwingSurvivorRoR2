@@ -34,8 +34,10 @@ namespace Deathwing.Modules
                 descriptionToken: Tokens.primaryDescription,
                 icon: primaryIcon,
                 stepCount: 2);
+            // A primary needs a stock to spend: with a max of zero the slot is permanently greyed out.
+            // A zero recharge interval restocks it instantly, which is how vanilla primaries work.
             claw.baseRechargeInterval = 0f;
-            claw.baseMaxStock = 0;
+            claw.baseMaxStock = 1;
             claw.mustKeyPress = false;
             claw.activationStateMachineName = "Weapon";
             claw.interruptPriority = InterruptPriority.Any;
@@ -49,6 +51,20 @@ namespace Deathwing.Modules
             boulder.baseMaxStock = 1;
             boulder.activationStateMachineName = "Weapon";
             boulder.interruptPriority = InterruptPriority.Skill;
+
+            SkillDef breath = CreateSkill<MoltenBreath>(
+                skillName: "DeathwingMoltenBreath",
+                nameToken: Tokens.breathName,
+                descriptionToken: Tokens.breathDescription,
+                icon: secondaryIcon);
+            breath.baseRechargeInterval = Tuning.breathCooldown.Value;
+            breath.baseMaxStock = 1;
+            breath.activationStateMachineName = "Weapon";
+            breath.interruptPriority = InterruptPriority.Skill;
+            // Held down for as long as the flame should last, and the cooldown only starts once it stops.
+            breath.mustKeyPress = true;
+            breath.beginSkillCooldownOnSkillEnd = true;
+            breath.canceledFromSprinting = true;
 
             SkillDef charge = CreateSkill<ElementiumCharge>(
                 skillName: "DeathwingElementiumCharge",
@@ -73,7 +89,8 @@ namespace Deathwing.Modules
             flight.interruptPriority = InterruptPriority.PrioritySkill;
             flight.isCombatSkill = false;
             flight.cancelSprintingOnActivation = false;
-            // Held down to keep flying, so the skill must not re-trigger every frame the key is held.
+            // A toggle: the state watches for the second press itself, so the slot must not re-activate
+            // on every frame the key is held.
             flight.mustKeyPress = true;
             flight.beginSkillCooldownOnSkillEnd = true;
 
@@ -91,7 +108,7 @@ namespace Deathwing.Modules
             ContentAddition.AddEntityState<DiveSlam>(out _);
 
             AssignFamily(skillLocator, SkillSlot.Primary, claw);
-            AssignFamily(skillLocator, SkillSlot.Secondary, boulder);
+            AssignFamily(skillLocator, SkillSlot.Secondary, boulder, breath);
             AssignFamily(skillLocator, SkillSlot.Utility, charge, flight);
             AssignFamily(skillLocator, SkillSlot.Special, cataclysm);
         }

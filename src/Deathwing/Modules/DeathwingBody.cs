@@ -134,7 +134,12 @@ namespace Deathwing.Modules
             }
 
             Transform modelTransform = modelLocator.modelTransform;
-            modelTransform.localScale = Vector3.one * Tuning.modelScale.Value;
+
+            // Scaling the model base rather than the model itself keeps the model's own transform (and
+            // with it the aim origin, muzzles and animation root motion) in the layout the chassis
+            // expects, while still enlarging everything attached below it.
+            Transform scaleTarget = modelLocator.modelBaseTransform ? modelLocator.modelBaseTransform : modelTransform;
+            scaleTarget.localScale = Vector3.one * Tuning.modelScale.Value;
 
             ReplaceModel(modelTransform);
             AddHitBoxes(modelTransform);
@@ -152,37 +157,12 @@ namespace Deathwing.Modules
                 return;
             }
 
-            // Skins would re-apply the borrowed survivor's materials on spawn and overwrite the tint.
-            Object.Destroy(modelTransform.GetComponent<ModelSkinController>());
-
-            Material template = null;
-            foreach (CharacterModel.RendererInfo rendererInfo in characterModel.baseRendererInfos)
+            // The skin controller is left intact: the chassis relies on it to assign its materials on
+            // spawn, so removing it leaves the mesh unrendered. The tint is applied afterwards instead.
+            if (!modelTransform.GetComponent<DeathwingTint>())
             {
-                if (rendererInfo.defaultMaterial)
-                {
-                    template = rendererInfo.defaultMaterial;
-                    break;
-                }
+                modelTransform.gameObject.AddComponent<DeathwingTint>();
             }
-
-            DeathwingAssets.CreateMaterials(template);
-            if (!DeathwingAssets.moltenSkinMaterial)
-            {
-                return;
-            }
-
-            CharacterModel.RendererInfo[] rendererInfos = characterModel.baseRendererInfos;
-            for (int i = 0; i < rendererInfos.Length; i++)
-            {
-                rendererInfos[i].defaultMaterial = i % 2 == 0 ? DeathwingAssets.rockSkinMaterial : DeathwingAssets.moltenSkinMaterial;
-                rendererInfos[i].defaultMaterialAddress = null;
-                if (rendererInfos[i].renderer)
-                {
-                    rendererInfos[i].renderer.sharedMaterial = rendererInfos[i].defaultMaterial;
-                }
-            }
-
-            characterModel.baseRendererInfos = rendererInfos;
         }
 
         /// <summary>
@@ -233,13 +213,14 @@ namespace Deathwing.Modules
             GameObject display = PrefabAPI.InstantiateClone(modelLocator.modelTransform.gameObject, "DeathwingDisplay", false);
             display.transform.localScale = Vector3.one * Tuning.modelScale.Value * 0.6f;
 
-            // The menu only needs the mesh and its idle animation; gameplay logic on the clone would
-            // otherwise run without a body to belong to. Animator is not a MonoBehaviour, so it stays.
-            // ChildLocator is kept because components like FootstepHandler declare it as required, and
-            // Unity refuses to remove a component another one depends on.
+            // Gameplay logic on the clone would run without a body to belong to, so only the components
+            // the menu actually renders through are kept: the model, its skin controller (which assigns
+            // the materials), the tint, and ChildLocator, which other components declare as required and
+            // Unity therefore refuses to remove. Animator is not a MonoBehaviour, so it stays regardless.
             foreach (MonoBehaviour behaviour in display.GetComponentsInChildren<MonoBehaviour>(true))
             {
-                if (behaviour is CharacterModel || behaviour is ChildLocator)
+                if (behaviour is CharacterModel || behaviour is ModelSkinController
+                    || behaviour is ChildLocator || behaviour is DeathwingTint)
                 {
                     continue;
                 }

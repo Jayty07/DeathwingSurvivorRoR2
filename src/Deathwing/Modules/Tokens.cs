@@ -19,6 +19,8 @@ namespace Deathwing.Modules
         internal const string primaryDescription = prefix + "PRIMARY_DESCRIPTION";
         internal const string secondaryName = prefix + "SECONDARY_NAME";
         internal const string secondaryDescription = prefix + "SECONDARY_DESCRIPTION";
+        internal const string breathName = prefix + "BREATH_NAME";
+        internal const string breathDescription = prefix + "BREATH_DESCRIPTION";
         internal const string utilityName = prefix + "UTILITY_NAME";
         internal const string utilityDescription = prefix + "UTILITY_DESCRIPTION";
         internal const string flightName = prefix + "FLIGHT_NAME";
@@ -34,8 +36,8 @@ namespace Deathwing.Modules
             LanguageAPI.Add(bodyDescription,
                 "Deathwing is a walking siege engine: he trades mobility for armor and raw force.<style=cIsUtility>He cannot be slowed easily, and every skill sets the ground on fire.</style>" +
                 "<style=cSub>\n\n< ! > Molten Claw is slow but hits like a boulder. Weave it between cooldowns rather than spamming it." +
-                "\n\n< ! > Molten Boulder arcs over cover and leaves a lava pool. Use it to zone chokepoints." +
-                "\n\n< ! > Wings of the Destroyer trades your ground dash for flight. Hold it to stay up, then dive to land as a bomb." +
+                "\n\n< ! > Molten Boulder arcs over cover and leaves a lava pool. Use it to zone chokepoints, or take Molten Breath to melt whatever closes the distance." +
+                "\n\n< ! > Wings of the Destroyer trades your ground dash for flight. Press it to take off, press it again to land, or dive to land as a bomb." +
                 "\n\n< ! > Elementium Charge is your only ground mobility. It also makes you nearly unkillable while it lasts, so charge through danger, not away from it." +
                 "\n\n< ! > Cataclysm roots you while it channels. Open with it against packed enemies.</style>");
             LanguageAPI.Add(bodyOutro, "..and so he left, the world still burning behind him.");
@@ -54,13 +56,18 @@ namespace Deathwing.Modules
             LanguageAPI.Add(secondaryDescription,
                 $"Hurl a chunk of the earth's crust for <style=cIsDamage>{Tuning.boulderDamageCoefficient.Value * 100f:0}% damage</style>. The impact <style=cIsDamage>ignites</style> and leaves a pool of lava.");
 
+            LanguageAPI.Add(breathName, "Molten Breath");
+            LanguageAPI.Add(breathDescription,
+                $"<style=cIsDamage>Ignite.</style> Breathe dragonfire in a cone for <style=cIsDamage>{Tuning.breathDamageCoefficient.Value * 100f:0}% damage per second</style> for up to " +
+                $"<style=cIsUtility>{MoltenBreath.baseMaxDuration:0.#}s</style>. Deathwing is slowed to a crawl while breathing.");
+
             LanguageAPI.Add(utilityName, "Elementium Charge");
             LanguageAPI.Add(utilityDescription,
                 $"<style=cIsUtility>Armored.</style> Charge forward, trampling enemies for <style=cIsDamage>{Tuning.chargeDamageCoefficient.Value * 100f:0}% damage</style> and launching them away.");
 
             LanguageAPI.Add(flightName, "Wings of the Destroyer");
             LanguageAPI.Add(flightDescription,
-                $"<style=cIsUtility>Flight.</style> Take to the air for up to <style=cIsUtility>{WingsOfTheDestroyer.maxFlightDuration:0.#}s</style>, steering where you look. " +
+                $"<style=cIsUtility>Flight.</style> Toggle flight for up to <style=cIsUtility>{Tuning.flightDuration.Value:0.#}s</style>, steering where you look. " +
                 $"Press <style=cIsUtility>your primary</style> while airborne to dive, dealing <style=cIsDamage>{DiveSlam.damageCoefficient * 100f:0}% damage</style> on impact in a radius that grows with the height of the dive.");
 
             LanguageAPI.Add(specialName, "Cataclysm");

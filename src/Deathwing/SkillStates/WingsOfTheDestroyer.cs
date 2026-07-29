@@ -6,14 +6,16 @@ using UnityEngine;
 namespace Deathwing.SkillStates
 {
     /// <summary>
-    /// Flight. Deathwing beats his wings and takes off: hold the key to stay airborne, steer with the
-    /// camera, and press the primary key to end the flight in a dive. Flight time is a fuel budget
-    /// rather than a cooldown, so the skill only refunds what is left over when it ends.
+    /// Flight. Deathwing beats his wings and takes off: the skill is a toggle, so he keeps flying until
+    /// the key is pressed again, the primary key ends the flight in a dive, or the wings give out. Steer
+    /// with the camera. Flight time is a fuel budget rather than a cooldown, so the skill only refunds
+    /// what is left over when it ends.
     /// </summary>
     public class WingsOfTheDestroyer : BaseDeathwingSkillState
     {
-        public static float maxFlightDuration = 6f;
         public static float takeoffDuration = 0.45f;
+        /// <summary>Grace period before a second press counts, so one tap cannot toggle flight off.</summary>
+        public static float toggleOffDelay = 0.35f;
         public static float takeoffVerticalSpeed = 18f;
         public static float horizontalSpeedMultiplier = 2.1f;
         public static float verticalSpeed = 11f;
@@ -22,16 +24,26 @@ namespace Deathwing.SkillStates
 
         private float wingBeatStopwatch;
         private bool wantsToDive;
+        private bool wantsToLand;
+        private float maxFlightDuration;
 
         public override void OnEnter()
         {
             base.OnEnter();
+            maxFlightDuration = Tuning.flightDuration.Value;
 
             if (characterMotor)
             {
                 characterMotor.useGravity = false;
                 characterMotor.disableAirControlUntilCollision = false;
                 characterMotor.velocity = new Vector3(characterMotor.velocity.x, takeoffVerticalSpeed, characterMotor.velocity.z);
+
+                // Taking off from the ground needs the motor unstuck from it, otherwise ground snapping
+                // cancels the upward velocity every step and the skill only appears to work mid-air.
+                if (characterMotor.Motor)
+                {
+                    characterMotor.Motor.ForceUnground();
+                }
             }
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, takeoffDuration);
@@ -62,9 +74,16 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            if (inputBank && inputBank.skill1.justPressed)
+            if (inputBank)
             {
-                wantsToDive = true;
+                if (inputBank.skill1.justPressed)
+                {
+                    wantsToDive = true;
+                }
+                else if (fixedAge > toggleOffDelay && FlightKeyJustPressed())
+                {
+                    wantsToLand = true;
+                }
             }
 
             if (wantsToDive)
@@ -73,11 +92,26 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            bool outOfFuel = fixedAge >= maxFlightDuration;
-            bool released = fixedAge > takeoffDuration && !IsKeyDownAuthority();
-            if (outOfFuel || released)
+            if (wantsToLand || fixedAge >= maxFlightDuration)
             {
                 outer.SetNextStateToMain();
+            }
+        }
+
+        /// <summary>
+        /// True when the key that started the flight is pressed again. The slot the skill was activated
+        /// from decides which input button to watch, so a rebound key still toggles flight off.
+        /// </summary>
+        private bool FlightKeyJustPressed()
+        {
+            SkillSlot slot = skillLocator ? skillLocator.FindSkillSlot(activatorSkillSlot) : SkillSlot.None;
+            switch (slot)
+            {
+                case SkillSlot.Primary: return inputBank.skill1.justPressed;
+                case SkillSlot.Secondary: return inputBank.skill2.justPressed;
+                case SkillSlot.Utility: return inputBank.skill3.justPressed;
+                case SkillSlot.Special: return inputBank.skill4.justPressed;
+                default: return false;
             }
         }
 

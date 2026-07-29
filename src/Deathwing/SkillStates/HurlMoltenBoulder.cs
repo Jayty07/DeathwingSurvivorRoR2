@@ -57,7 +57,12 @@ namespace Deathwing.SkillStates
 
             Ray aimRay = GetAimRay();
             Vector3 direction = (aimRay.direction + Vector3.up * upwardAimBias).normalized;
-            Vector3 origin = aimRay.origin + direction * (2f * characterScale);
+
+            // Spawned from chest height and well clear of a body this wide, so the boulder cannot clip
+            // the ground or his own collider and detonate at his feet.
+            Vector3 origin = characterBody.corePosition
+                + Vector3.up * (1.2f * characterScale)
+                + direction * (2.5f * characterScale);
 
             if (Projectiles.moltenBoulder)
             {
