@@ -25,9 +25,15 @@ file (`BepInEx/config/com.jayty07.deathwing.cfg`) — see `Modules/Tuning.cs`.
 
 ## Installing
 
-1. Install [BepInEx](https://thunderstore.io/package/bbepis/BepInExPack/) and
-   [R2API](https://thunderstore.io/package/RiskofThunder/R2API_Core/) (Core, ContentManagement,
-   Prefab, Language and RecalculateStats submodules) into Risk of Rain 2.
+1. Install [BepInEx](https://thunderstore.io/package/bbepis/BepInExPack/), then **all five** of these
+   R2API packages — the plugin refuses to load if any is missing:
+   [R2API_Core](https://thunderstore.io/package/RiskofThunder/R2API_Core/),
+   [R2API_ContentManagement](https://thunderstore.io/package/RiskofThunder/R2API_ContentManagement/),
+   [R2API_Prefab](https://thunderstore.io/package/RiskofThunder/R2API_Prefab/),
+   [R2API_Language](https://thunderstore.io/package/RiskofThunder/R2API_Language/),
+   [R2API_RecalculateStats](https://thunderstore.io/package/RiskofThunder/R2API_RecalculateStats/).
+   Installing R2API_Core through a mod manager (r2modman / Thunderstore Mod Manager) pulls the rest in
+   as dependencies.
 2. Drop `Deathwing.dll` into `Risk of Rain 2/BepInEx/plugins/Deathwing/`.
 3. Launch the game. Deathwing appears at the end of the character select list.
 
