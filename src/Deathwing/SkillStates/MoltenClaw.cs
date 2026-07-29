@@ -8,8 +8,9 @@ using UnityEngine.Networking;
 namespace Deathwing.SkillStates
 {
     /// <summary>
-    /// Primary: a heavy two-step claw swipe. Slow to start, no cancel window until the swing has
-    /// landed, and it ignites everything it touches.
+    /// Primary: a heavy three-hit combo. Two claw swipes, then an overhead slam that adds a blast
+    /// around the impact and launches what it hits. Slow to start, no cancel window until the swing
+    /// has landed, and every hit ignites.
     /// </summary>
     public class MoltenClaw : BaseDeathwingSkillState, SteppedSkillDef.IStepSetter
     {
@@ -20,6 +21,15 @@ namespace Deathwing.SkillStates
         public static float hitForce = 900f;
         public static float selfForwardImpulse = 4f;
 
+        /// <summary>The slam is slower and hits harder than the two swipes that set it up.</summary>
+        public static int comboLength = 3;
+        public static float finisherDurationMultiplier = 1.35f;
+        public static float finisherDamageMultiplier = 1.6f;
+        public static float finisherBlastRadius = 9f;
+        public static float finisherBlastForce = 2400f;
+        public static float swipeShakeMagnitude = 1.6f;
+        public static float finisherShakeMagnitude = 5f;
+
         private int step;
         private float duration;
         private OverlapAttack attack;
@@ -28,17 +38,27 @@ namespace Deathwing.SkillStates
 
         void SteppedSkillDef.IStepSetter.SetStep(int i) => step = i;
 
+        /// <summary>The last step of the combo, which lands as a slam rather than a swipe.</summary>
+        private bool IsFinisher => step % comboLength == comboLength - 1;
+
+        private float DamageCoefficient =>
+            Tuning.clawDamageCoefficient.Value * (IsFinisher ? finisherDamageMultiplier : 1f);
+
         public override void OnEnter()
         {
             base.OnEnter();
             duration = baseDuration / attackSpeedStat;
+            if (IsFinisher)
+            {
+                duration *= finisherDurationMultiplier;
+            }
 
             attack = new OverlapAttack
             {
                 attacker = gameObject,
                 inflictor = gameObject,
                 teamIndex = GetTeam(),
-                damage = Tuning.clawDamageCoefficient.Value * damageStat,
+                damage = DamageCoefficient * damageStat,
                 procCoefficient = 1f,
                 hitEffectPrefab = DeathwingAssets.fireImpactEffect,
                 forceVector = Vector3.zero,
@@ -51,8 +71,18 @@ namespace Deathwing.SkillStates
 
             StartAimMode(2f);
             characterBody.SetAimTimer(duration + 0.5f);
-            Util.PlaySound(Sounds.clawSwing, gameObject);
-            PlayCrossfade("Gesture, Override", "FireGun", "FireGun.playbackRate", duration, 0.1f);
+            Util.PlaySound(IsFinisher ? Sounds.clawSlam : Sounds.clawSwing, gameObject);
+
+            // The chassis has no claw animations, so the combo is telegraphed through the gestures it
+            // does have: the swipes reuse the firing gesture, the slam the heavier throw.
+            if (IsFinisher)
+            {
+                PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", duration, 0.1f);
+            }
+            else
+            {
+                PlayCrossfade("Gesture, Override", "FireGun", "FireGun.playbackRate", duration, 0.1f);
+            }
         }
 
         public override void FixedUpdate()
@@ -72,6 +102,16 @@ namespace Deathwing.SkillStates
                     }
 
                     SpawnClawEffect();
+                    ShakeCamera(
+                        transform.position,
+                        IsFinisher ? finisherShakeMagnitude : swipeShakeMagnitude,
+                        IsFinisher ? 0.4f : 0.2f,
+                        IsFinisher ? 40f : 20f);
+
+                    if (IsFinisher)
+                    {
+                        Slam();
+                    }
                 }
 
                 if (isAuthority && attack != null && attack.Fire() && !hasHit)
@@ -95,7 +135,24 @@ namespace Deathwing.SkillStates
             }
 
             Vector3 origin = transform.position + Vector3.up * (1.2f * characterScale) + characterDirection.forward * (2.4f * characterScale);
-            SpawnFireEffect(origin, 1.2f * characterScale);
+            SpawnFireEffect(origin, (IsFinisher ? 2.4f : 1.3f) * characterScale);
+        }
+
+        /// <summary>
+        /// The finisher adds a blast in front of Deathwing on top of the melee hitbox, so the combo ends
+        /// on something that clears a crowd rather than only what fits inside the claw.
+        /// </summary>
+        private void Slam()
+        {
+            if (!isAuthority || !characterDirection)
+            {
+                return;
+            }
+
+            Vector3 impact = GroundPosition(transform.position + characterDirection.forward * (2.4f * characterScale));
+            BlastAttack blast = CreateFireBlast(impact, finisherBlastRadius * characterScale, DamageCoefficient * 0.5f, finisherBlastForce);
+            blast.bonusForce = Vector3.up * (finisherBlastForce * 0.35f);
+            blast.Fire();
         }
 
         public override void OnSerialize(NetworkWriter writer)

@@ -7,6 +7,7 @@ namespace Deathwing.Modules
     internal static class Sounds
     {
         internal const string clawSwing = "Play_imp_attack1";
+        internal const string clawSlam = "Play_beetleGuard_attack1_impact";
         internal const string boulderWindup = "Play_golem_attack1_start";
         internal const string boulderThrow = "Play_MULT_m2_grenade_throw";
         internal const string chargeStart = "Play_beetleGuard_attack2_start";

@@ -14,10 +14,12 @@ namespace Deathwing.SkillStates
         public static float baseWindupDuration = 0.4f;
         public static float baseMaxDuration = 3.5f;
         public static float tickInterval = 0.2f;
-        public static float range = 26f;
-        public static float coneHalfAngle = 22f;
+        public static float range = 55f;
+        public static float coneHalfAngle = 18f;
         public static float moveSpeedMultiplier = 0.35f;
         public static float force = 250f;
+        public static int visualSteps = 4;
+        public static int damageSteps = 4;
 
         private float windupDuration;
         private float maxDuration;
@@ -90,11 +92,17 @@ namespace Deathwing.SkillStates
             Ray aimRay = GetAimRay();
             Vector3 mouth = characterBody.corePosition + Vector3.up * (1.2f * characterScale);
 
-            DeathwingAssets.SpawnEffect(
-                DeathwingAssets.fireImpactEffect,
-                mouth + aimRay.direction * (range * 0.35f),
-                1.6f * characterScale,
-                gameObject);
+            // The flame is drawn as a row of blasts down the aim ray so its visual reaches as far as its
+            // damage does; a single effect at one distance read as a short puff.
+            for (int i = 1; i <= visualSteps; i++)
+            {
+                float distance = range * i / visualSteps;
+                DeathwingAssets.SpawnEffect(
+                    DeathwingAssets.fireImpactEffect,
+                    mouth + aimRay.direction * distance,
+                    Mathf.Lerp(1.2f, 3f, (float)i / visualSteps) * characterScale,
+                    gameObject);
+            }
 
             if (!isAuthority)
             {
@@ -103,15 +111,15 @@ namespace Deathwing.SkillStates
 
             float tickCoefficient = Tuning.breathDamageCoefficient.Value * tickInterval;
 
-            // Three overlapping blasts walked along the aim ray approximate a cone: each is placed
-            // further out and widened by the cone's angle, which avoids needing a custom collider.
-            for (int i = 1; i <= 3; i++)
+            // Overlapping blasts walked along the aim ray approximate a cone: each is placed further
+            // out and widened by the cone's angle, which avoids needing a custom collider.
+            for (int i = 1; i <= damageSteps; i++)
             {
-                float distance = range * i / 3f;
+                float distance = range * i / damageSteps;
                 Vector3 position = mouth + aimRay.direction * distance;
                 float radius = Mathf.Tan(coneHalfAngle * Mathf.Deg2Rad) * distance;
 
-                BlastAttack blast = CreateFireBlast(position, radius, tickCoefficient / 3f, force);
+                BlastAttack blast = CreateFireBlast(position, radius, tickCoefficient / damageSteps, force);
                 blast.procCoefficient = tickInterval;
                 blast.losType = BlastAttack.LoSType.NearestHit;
                 blast.Fire();

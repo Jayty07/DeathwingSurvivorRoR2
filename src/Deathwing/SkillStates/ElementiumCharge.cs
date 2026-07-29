@@ -57,6 +57,7 @@ namespace Deathwing.SkillStates
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, duration + 0.5f);
             Util.PlaySound(Sounds.chargeStart, gameObject);
+            ShakeCamera(transform.position, 3f, 0.3f, 30f);
             PlayCrossfade("Body", "Sprint", 0.1f);
         }
 
@@ -78,7 +79,8 @@ namespace Deathwing.SkillStates
             if (scorchStopwatch >= scorchInterval)
             {
                 scorchStopwatch = 0f;
-                DeathwingAssets.SpawnEffect(DeathwingAssets.fireImpactEffect, GroundPosition(transform.position), 0.8f * characterScale, gameObject);
+                DeathwingAssets.SpawnEffect(DeathwingAssets.fireImpactEffect, GroundPosition(transform.position), 1.6f * characterScale, gameObject);
+                ShakeCamera(transform.position, 1.2f, scorchInterval, 25f);
             }
 
             if (isAuthority)

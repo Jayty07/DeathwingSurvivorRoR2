@@ -20,6 +20,7 @@ namespace Deathwing.SkillStates
         public static float ringRadiusStep = 8f;
         public static int fissuresPerRing = 6;
         public static float ringForce = 2600f;
+        public static float ringShakeMagnitude = 8f;
 
         private float channelDuration;
         private float eruptionDuration;
@@ -36,7 +37,7 @@ namespace Deathwing.SkillStates
             characterBody.AddTimedBuff(Buffs.elementiumPlating, channelDuration + eruptionDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
             PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", channelDuration, 0.1f);
-            DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 2f * characterScale, gameObject);
+            DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 4f * characterScale, gameObject);
         }
 
         public override void FixedUpdate()
@@ -73,15 +74,18 @@ namespace Deathwing.SkillStates
             Vector3 center = GroundPosition(transform.position);
 
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
+            ShakeCamera(center, ringShakeMagnitude, 0.6f, radius + 40f);
 
             for (int i = 0; i < fissuresPerRing; i++)
             {
                 float angle = (360f / fissuresPerRing) * i + ringIndex * 18f;
                 Vector3 offset = Quaternion.Euler(0f, angle, 0f) * (Vector3.forward * radius);
                 Vector3 fissure = GroundPosition(center + offset);
-                DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, fissure, 1.4f, gameObject);
+                DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, fissure, 3.5f, gameObject);
 
-                if (isAuthority && ringIndex == ringCount - 1 && Projectiles.lavaPool && i % 2 == 0)
+                // Every fissure leaves burning ground, so the whole area stays denied after the rings
+                // have gone off rather than only the outermost one.
+                if (isAuthority && Projectiles.lavaPool)
                 {
                     ProjectileManager.instance.FireProjectile(
                         Projectiles.lavaPool,

@@ -14,9 +14,8 @@ namespace Deathwing.SkillStates
     {
         public static float baseDuration = 1.5f;
         public static float throwFraction = 0.55f;
-        public static float projectileSpeed = 65f;
-        public static float upwardAimBias = 0.12f;
-        public static float fallbackBlastRadius = 11f;
+        public static float projectileSpeed = 110f;
+        public static float fallbackBlastRadius = 16f;
 
         private float duration;
         private bool hasThrown;
@@ -50,19 +49,23 @@ namespace Deathwing.SkillStates
         private void Throw()
         {
             Util.PlaySound(Sounds.boulderThrow, gameObject);
+            ShakeCamera(transform.position, 3.5f, 0.3f, 30f);
             if (!isAuthority)
             {
                 return;
             }
 
             Ray aimRay = GetAimRay();
-            Vector3 direction = (aimRay.direction + Vector3.up * upwardAimBias).normalized;
 
-            // Spawned from chest height and well clear of a body this wide, so the boulder cannot clip
-            // the ground or his own collider and detonate at his feet.
-            Vector3 origin = characterBody.corePosition
-                + Vector3.up * (1.2f * characterScale)
-                + direction * (2.5f * characterScale);
+            // Spawned clear of a body this wide so the boulder cannot clip his own collider, but along
+            // the aim ray rather than above it: an upward bias plus a fast projectile threw it well over
+            // the crosshair. It is aimed at the point the crosshair is actually over, so the arc from
+            // the raised spawn point still converges on what the player is looking at.
+            Vector3 origin = aimRay.origin + aimRay.direction * (2.5f * characterScale);
+            Vector3 target = Physics.Raycast(aimRay, out RaycastHit aimHit, 400f, LayerIndex.world.mask | LayerIndex.entityPrecise.mask)
+                ? aimHit.point
+                : aimRay.GetPoint(200f);
+            Vector3 direction = (target - origin).normalized;
 
             if (Projectiles.moltenBoulder)
             {
@@ -86,7 +89,7 @@ namespace Deathwing.SkillStates
                 : aimRay.GetPoint(60f);
 
             CreateFireBlast(impact, fallbackBlastRadius, Tuning.boulderDamageCoefficient.Value, 2200f).Fire();
-            SpawnFireEffect(impact, fallbackBlastRadius * 0.25f);
+            SpawnFireEffect(impact, fallbackBlastRadius * 0.4f);
         }
 
         public override InterruptPriority GetMinimumInterruptPriority() => InterruptPriority.Skill;

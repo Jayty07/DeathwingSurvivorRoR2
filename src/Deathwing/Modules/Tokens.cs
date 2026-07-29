@@ -35,7 +35,7 @@ namespace Deathwing.Modules
             LanguageAPI.Add(bodySubtitle, "The Destroyer");
             LanguageAPI.Add(bodyDescription,
                 "Deathwing is a walking siege engine: he trades mobility for armor and raw force.<style=cIsUtility>He cannot be slowed easily, and every skill sets the ground on fire.</style>" +
-                "<style=cSub>\n\n< ! > Molten Claw is slow but hits like a boulder. Weave it between cooldowns rather than spamming it." +
+                "<style=cSub>\n\n< ! > Molten Claw is slow but hits like a boulder. Land all three hits of the combo: the slam is where most of its damage is." +
                 "\n\n< ! > Molten Boulder arcs over cover and leaves a lava pool. Use it to zone chokepoints, or take Molten Breath to melt whatever closes the distance." +
                 "\n\n< ! > Wings of the Destroyer trades your ground dash for flight. Press it to take off, press it again to land, or dive to land as a bomb." +
                 "\n\n< ! > Elementium Charge is your only ground mobility. It also makes you nearly unkillable while it lasts, so charge through danger, not away from it." +
@@ -50,7 +50,8 @@ namespace Deathwing.Modules
 
             LanguageAPI.Add(primaryName, "Molten Claw");
             LanguageAPI.Add(primaryDescription,
-                $"Slam the ground with a molten claw for <style=cIsDamage>{Tuning.clawDamageCoefficient.Value * 100f:0}% damage</style>, <style=cIsDamage>igniting</style> everything it touches.");
+                $"<style=cIsDamage>Ignite.</style> A three-hit combo: two claw swipes for <style=cIsDamage>{Tuning.clawDamageCoefficient.Value * 100f:0}% damage</style> each, " +
+                $"then a slam for <style=cIsDamage>{Tuning.clawDamageCoefficient.Value * MoltenClaw.finisherDamageMultiplier * 100f:0}% damage</style> that erupts around the impact and launches what it hits.");
 
             LanguageAPI.Add(secondaryName, "Molten Boulder");
             LanguageAPI.Add(secondaryDescription,

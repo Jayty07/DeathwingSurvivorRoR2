@@ -12,16 +12,18 @@ art (see [Replacing the model](#replacing-the-model)).
 
 | Slot | Skill | Behaviour |
 | --- | --- | --- |
-| Passive | **Molten Blood** | Up to +40 armor and +40% damage, scaling with missing health. The lower he gets, the hotter he burns. |
-| Primary | **Molten Claw** | Slow two-step claw swipe (320% damage per swing) that ignites. No cancel window until the swing lands. |
+| Passive | **Molten Blood** | Up to +60 armor and +40% damage, scaling with missing health. The lower he gets, the hotter he burns. |
+| Primary | **Molten Claw** | Slow three-hit combo: two claw swipes (320% each), then a slam (510%) that erupts around the impact and launches what it hits. No cancel window until a swing lands. |
 | Secondary | **Molten Boulder** | Lobs an arcing boulder (600% damage) that explodes, ignites and leaves a lava pool. |
-| Secondary (alt) | **Molten Breath** | Held cone of dragonfire, 450% damage per second for up to 3.5s, igniting everything in it. Slows him to a crawl while breathing. |
+| Secondary (alt) | **Molten Breath** | Held 55m cone of dragonfire, 450% damage per second for up to 3.5s, igniting everything in it. Slows him to a crawl while breathing. |
 | Utility | **Elementium Charge** | Committed forward charge with +200 armor, trampling each enemy once for 500% damage and launching them. |
 | Utility (alt) | **Wings of the Destroyer** | **Flight.** Up to 6s airborne, steered with the camera; press once to take off, press again to land, hold jump to climb. Press primary while airborne to enter **Dive Slam** — a meteor drop whose blast radius (12–26m) scales with the height fallen, for 700% damage plus lava pools. Unused flight time is partly refunded to the cooldown. |
-| Special | **Cataclysm** | Roots him briefly, then splits the ground in three expanding rings of fissures (400% damage each). Enemies standing close eat every ring. |
+| Special | **Cataclysm** | Roots him briefly, then splits the ground in three expanding rings of fissures (400% damage each), each fissure leaving a burning pool behind. Enemies standing close eat every ring. |
 
-Stats: 260 HP (+78/level), 30 armor, 6 move speed (vanilla is 7), 16 base damage (vanilla is 12),
-0.8 attack speed, one jump, no hitstun and no freeze. Every number above is exposed in the config
+Stats: 420 HP (+126/level), 40 armor, 4 HP/s regen, 6 move speed (vanilla is 7), 16 base damage
+(vanilla is 12), 0.8 attack speed, one jump, no hitstun and no freeze. The oversized health pool and
+regen are deliberate: he cannot walk away from a fight he is losing, so the early stages have to be
+survivable before items make up the difference. Every number above is exposed in the config
 file (`BepInEx/config/com.jayty07.deathwing.cfg`) — see `Modules/Tuning.cs`.
 
 ## Installing
@@ -95,6 +97,13 @@ model moves them and skills start firing from the wrong place. And `ModelSkinCon
 the chassis relies on it to assign its materials during spawn, so the tint cannot be baked into the
 prefab. `DeathwingTint` instead waits for the skin to apply and then recolours each renderer by copying
 its own live material, which preserves the shader and textures whatever chassis it came from.
+
+**Borrowed effects are cloned, recoloured and enlarged, never used as-is.** The vanilla effects that
+reliably resolve by address are tinted for their own survivor — the engineer's grenade explodes green,
+Acrid's pool is acid — so `DeathwingAssets.CreateFireEffect` clones each one, pushes fire colours into
+every material, particle system and light on it, scales it (particle sizes and speeds included, not
+just the transform) and registers the result as Deathwing's own effect. `DeathwingAssets.Recolor` does
+the same to the cloned projectiles.
 
 **Nothing hard-fails on a missing asset.** Every vanilla asset is fetched through
 `DeathwingAssets.Load<T>(params string[] keys)`, which tries each address in turn and returns null

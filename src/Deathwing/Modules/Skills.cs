@@ -33,7 +33,7 @@ namespace Deathwing.Modules
                 nameToken: Tokens.primaryName,
                 descriptionToken: Tokens.primaryDescription,
                 icon: primaryIcon,
-                stepCount: 2);
+                stepCount: MoltenClaw.comboLength);
             // A primary needs a stock to spend: with a max of zero the slot is permanently greyed out.
             // A zero recharge interval restocks it instantly, which is how vanilla primaries work.
             claw.baseRechargeInterval = 0f;

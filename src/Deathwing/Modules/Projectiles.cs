@@ -18,7 +18,7 @@ namespace Deathwing.Modules
 
         internal const float lavaPoolLifetime = 6f;
         internal const float lavaPoolDamageCoefficient = 0.4f;
-        internal const float lavaPoolRadiusScale = 1.6f;
+        internal const float lavaPoolRadiusScale = 2.2f;
 
         internal static void Init()
         {
@@ -55,7 +55,8 @@ namespace Deathwing.Modules
                 damage.damageColorIndex = DamageColorIndex.Item;
             }
 
-            Retint(prefab, new Color(1f, 0.35f, 0.05f));
+            // Acrid's pool is acid green; recolouring it is what turns it into lava.
+            DeathwingAssets.Recolor(prefab);
             ContentAddition.AddProjectile(prefab);
             return prefab;
         }
@@ -71,17 +72,12 @@ namespace Deathwing.Modules
                 return null;
             }
 
-            if (source.TryGetComponent(out ProjectileImpactExplosion sourceExplosion))
-            {
-                DeathwingAssets.AdoptEffectsFrom(sourceExplosion.explosionEffect, sourceExplosion.impactEffect);
-            }
-
             GameObject prefab = PrefabAPI.InstantiateClone(source, "DeathwingMoltenBoulder");
             prefab.transform.localScale *= 2.2f;
 
             if (prefab.TryGetComponent(out ProjectileImpactExplosion impactExplosion))
             {
-                impactExplosion.blastRadius = 11f;
+                impactExplosion.blastRadius = 16f;
                 impactExplosion.blastDamageCoefficient = 1f;
                 impactExplosion.destroyOnEnemy = true;
                 impactExplosion.destroyOnWorld = true;
@@ -90,9 +86,16 @@ namespace Deathwing.Modules
                 impactExplosion.lifetime = 8f;
                 impactExplosion.falloffModel = BlastAttack.FalloffModel.None;
 
+                // The engineer's grenade explodes green, so its effects are replaced outright rather
+                // than recoloured in place.
                 if (DeathwingAssets.explosionEffect)
                 {
                     impactExplosion.explosionEffect = DeathwingAssets.explosionEffect;
+                }
+
+                if (DeathwingAssets.fireImpactEffect)
+                {
+                    impactExplosion.impactEffect = DeathwingAssets.fireImpactEffect;
                 }
 
                 if (lavaPool)
@@ -112,51 +115,9 @@ namespace Deathwing.Modules
                 damage.force = 2200f;
             }
 
-            Retint(prefab, new Color(1f, 0.3f, 0.05f));
+            DeathwingAssets.Recolor(prefab);
             ContentAddition.AddProjectile(prefab);
             return prefab;
-        }
-
-        /// <summary>Pushes an orange tint into whatever renderers the borrowed prefab happens to use.</summary>
-        private static void Retint(GameObject prefab, Color color)
-        {
-            foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
-            {
-                Material[] materials = renderer.sharedMaterials;
-                for (int i = 0; i < materials.Length; i++)
-                {
-                    if (!materials[i])
-                    {
-                        continue;
-                    }
-
-                    Material copy = Object.Instantiate(materials[i]);
-                    copy.name = materials[i].name + "Deathwing";
-                    foreach (string property in new[] { "_Color", "_TintColor", "_EmColor" })
-                    {
-                        if (copy.HasProperty(property))
-                        {
-                            copy.SetColor(property, color);
-                        }
-                    }
-
-                    materials[i] = copy;
-                }
-
-                renderer.sharedMaterials = materials;
-            }
-
-            foreach (ParticleSystemRenderer particles in prefab.GetComponentsInChildren<ParticleSystemRenderer>(true))
-            {
-                ParticleSystem system = particles.GetComponent<ParticleSystem>();
-                if (!system)
-                {
-                    continue;
-                }
-
-                ParticleSystem.MainModule main = system.main;
-                main.startColor = color;
-            }
         }
     }
 }

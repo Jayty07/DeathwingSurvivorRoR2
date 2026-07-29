@@ -20,7 +20,7 @@ namespace Deathwing.SkillStates
         public static float maxBlastRadius = 26f;
         public static float damageCoefficient = 7f;
         public static float blastForce = 4000f;
-        public static int lavaPoolCount = 3;
+        public static int lavaPoolCount = 5;
 
         private float startHeight;
         private bool hasLanded;
@@ -90,8 +90,9 @@ namespace Deathwing.SkillStates
             Vector3 impact = GroundPosition(transform.position);
 
             Util.PlaySound(Sounds.diveImpact, gameObject);
-            DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, impact, radius * 0.2f, gameObject);
-            SpawnFireEffect(impact, radius * 0.18f);
+            DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, impact, radius * 0.45f, gameObject);
+            SpawnFireEffect(impact, radius * 0.4f);
+            ShakeCamera(impact, 12f, 0.8f, radius + 60f);
 
             if (!isAuthority)
             {

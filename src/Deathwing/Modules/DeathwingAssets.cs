@@ -1,4 +1,5 @@
 using System;
+using R2API;
 using RoR2;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -7,12 +8,16 @@ namespace Deathwing.Modules
 {
     /// <summary>
     /// Resolves vanilla content that the survivor borrows (models, effects, base projectiles) and
-    /// derives Deathwing's molten materials from it. Every lookup is tolerant of missing keys so a
-    /// game update that renames an address degrades visuals instead of breaking the survivor.
+    /// derives Deathwing's molten look from it. Every lookup is tolerant of missing keys so a game
+    /// update that renames an address degrades visuals instead of breaking the survivor.
     /// </summary>
     internal static class DeathwingAssets
     {
         internal const string commandoBodyKey = "RoR2/Base/Commando/CommandoBody.prefab";
+
+        /// <summary>Fire colours every borrowed effect and projectile is recoloured towards.</summary>
+        internal static readonly Color fireCore = new Color(1f, 0.72f, 0.18f);
+        internal static readonly Color fireEdge = new Color(1f, 0.24f, 0.03f);
 
         internal static GameObject explosionEffect;
         internal static GameObject fireImpactEffect;
@@ -21,34 +26,145 @@ namespace Deathwing.Modules
 
         internal static void Init()
         {
-            explosionEffect = Load<GameObject>(
+            GameObject explosionSource = Load<GameObject>(
                 "RoR2/Base/Common/VFX/OmniExplosionVFXQuick.prefab",
                 "RoR2/Base/Common/VFX/OmniExplosionVFX.prefab");
+            GameObject impactSource = Load<GameObject>("RoR2/Base/Common/VFX/OmniImpactVFX.prefab") ?? explosionSource;
 
-            // Every effect falls back to the explosion that is known to resolve, so a skill never
-            // silently loses all of its feedback.
-            fireImpactEffect = Load<GameObject>("RoR2/Base/Common/VFX/OmniImpactVFX.prefab") ?? explosionEffect;
-            eruptionEffect = explosionEffect;
-            roarEffect = explosionEffect;
+            // Borrowed effects are cloned, recoloured and enlarged rather than used as-is: the vanilla
+            // prefabs that reliably resolve are tinted for their own survivor (the engineer's grenade
+            // blast is green, for instance), and Deathwing's blasts should read as bigger and hotter
+            // than anything he borrowed them from.
+            explosionEffect = CreateFireEffect(explosionSource, "DeathwingExplosionEffect", 3.4f);
+            eruptionEffect = CreateFireEffect(explosionSource, "DeathwingEruptionEffect", 2.6f);
+            roarEffect = CreateFireEffect(explosionSource, "DeathwingRoarEffect", 2.2f);
+            fireImpactEffect = CreateFireEffect(impactSource, "DeathwingFireImpactEffect", 2.2f) ?? explosionEffect;
         }
 
         /// <summary>
-        /// Adopts effects off a prefab that already resolved. Vanilla projectiles carry effects that are
-        /// guaranteed to be registered in the effect catalog, which is more reliable than guessing at
-        /// effect addresses.
+        /// Clones a vanilla effect, recolours it to fire, scales it up and registers it as Deathwing's
+        /// own effect so it can be spawned through <see cref="EffectManager"/>.
         /// </summary>
-        internal static void AdoptEffectsFrom(GameObject explosionSource, GameObject impactSource)
+        private static GameObject CreateFireEffect(GameObject source, string name, float scale)
         {
-            if (explosionSource)
+            if (!source)
             {
-                explosionEffect = explosionSource;
-                eruptionEffect = explosionSource;
-                roarEffect = explosionSource;
+                return null;
             }
 
-            if (impactSource)
+            GameObject prefab = PrefabAPI.InstantiateClone(source, name, false);
+            Recolor(prefab);
+            Enlarge(prefab, scale);
+
+            if (prefab.TryGetComponent(out EffectComponent effectComponent))
             {
-                fireImpactEffect = impactSource;
+                // Lets callers size a blast's visual to its actual radius.
+                effectComponent.applyScale = true;
+            }
+
+            if (!ContentAddition.AddEffect(prefab))
+            {
+                Log.Warning($"Effect '{name}' could not be registered; falling back to the source effect.");
+                return source;
+            }
+
+            return prefab;
+        }
+
+        /// <summary>
+        /// Pushes fire colours into every material, particle system and light on a borrowed prefab.
+        /// Materials are copied first so the vanilla asset is never mutated.
+        /// </summary>
+        internal static void Recolor(GameObject prefab)
+        {
+            foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] materials = renderer.sharedMaterials;
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    if (!materials[i])
+                    {
+                        continue;
+                    }
+
+                    Material copy = UnityEngine.Object.Instantiate(materials[i]);
+                    copy.name = materials[i].name + "Deathwing";
+
+                    // The colour lives under a different property name depending on which shader the
+                    // borrowed effect uses, so every plausible one is set.
+                    TrySetColor(copy, "_Color", fireEdge);
+                    TrySetColor(copy, "_TintColor", fireEdge);
+                    TrySetColor(copy, "_EmColor", fireCore);
+                    TrySetColor(copy, "_EmissionColor", fireCore);
+                    TrySetColor(copy, "_BrightColor", fireCore);
+                    TrySetColor(copy, "_MidColor", fireEdge);
+                    TrySetColor(copy, "_DarkColor", new Color(0.25f, 0.04f, 0.01f));
+                    TrySetColor(copy, "_RimColor", fireCore);
+
+                    materials[i] = copy;
+                }
+
+                renderer.sharedMaterials = materials;
+            }
+
+            foreach (ParticleSystem system in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                ParticleSystem.MainModule main = system.main;
+                main.startColor = new ParticleSystem.MinMaxGradient(fireCore, fireEdge);
+
+                // A borrowed gradient fades towards its own survivor's colour, so it is replaced with
+                // one that cools from yellow-hot to ember instead.
+                ParticleSystem.ColorOverLifetimeModule colorOverLifetime = system.colorOverLifetime;
+                if (colorOverLifetime.enabled)
+                {
+                    colorOverLifetime.color = new ParticleSystem.MinMaxGradient(FireGradient());
+                }
+            }
+
+            foreach (Light light in prefab.GetComponentsInChildren<Light>(true))
+            {
+                light.color = fireEdge;
+            }
+        }
+
+        private static Gradient FireGradient()
+        {
+            return new Gradient
+            {
+                colorKeys = new[]
+                {
+                    new GradientColorKey(new Color(1f, 0.95f, 0.6f), 0f),
+                    new GradientColorKey(fireCore, 0.35f),
+                    new GradientColorKey(fireEdge, 1f)
+                },
+                alphaKeys = new[]
+                {
+                    new GradientAlphaKey(1f, 0f),
+                    new GradientAlphaKey(1f, 0.6f),
+                    new GradientAlphaKey(0f, 1f)
+                }
+            };
+        }
+
+        /// <summary>
+        /// Grows an effect. Particle sizes and speeds are scaled alongside the transform, because
+        /// scaling the transform alone leaves world-simulated particles the same size as the original.
+        /// </summary>
+        private static void Enlarge(GameObject prefab, float scale)
+        {
+            prefab.transform.localScale *= scale;
+
+            foreach (ParticleSystem system in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                if (system.main.scalingMode == ParticleSystemScalingMode.Hierarchy)
+                {
+                    continue;
+                }
+
+                ParticleSystem.MainModule main = system.main;
+                main.startSizeMultiplier *= scale;
+                main.startSpeedMultiplier *= scale;
+                main.gravityModifierMultiplier *= scale;
             }
         }
 
