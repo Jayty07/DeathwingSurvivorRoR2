@@ -14,8 +14,8 @@ namespace Deathwing.Modules
         private static readonly Color rockAlbedo = new Color(0.14f, 0.11f, 0.10f);
         private static readonly Color rockEmission = new Color(1.6f, 0.35f, 0.05f);
 
-        private static readonly Color flameAlbedo = new Color(0.35f, 0.06f, 0.02f);
-        private static readonly Color flameEmission = new Color(4f, 1.1f, 0.15f);
+        private static readonly Color flameAlbedo = new Color(0.22f, 0.03f, 0.01f);
+        private static readonly Color flameEmission = new Color(6.5f, 1.7f, 0.2f);
 
         private static Material rockMaterial;
         private static Material flameMaterial;
@@ -65,7 +65,7 @@ namespace Deathwing.Modules
                 "matDeathwingLavaFlame",
                 flameAlbedo,
                 flameEmission,
-                6f);
+                9f);
 
             Log.Info($"Burning ground materials built from '{template.name}'.");
         }
@@ -124,8 +124,8 @@ namespace Deathwing.Modules
                 float to = (i + 1) / (float)sides * Mathf.PI * 2f;
                 int baseVertex = i * 3;
 
-                vertices[baseVertex] = new Vector3(Mathf.Cos(from) * 0.35f, 0f, Mathf.Sin(from) * 0.35f);
-                vertices[baseVertex + 1] = new Vector3(Mathf.Cos(to) * 0.35f, 0f, Mathf.Sin(to) * 0.35f);
+                vertices[baseVertex] = new Vector3(Mathf.Cos(from) * 0.22f, 0f, Mathf.Sin(from) * 0.22f);
+                vertices[baseVertex + 1] = new Vector3(Mathf.Cos(to) * 0.22f, 0f, Mathf.Sin(to) * 0.22f);
                 vertices[baseVertex + 2] = tip;
 
                 triangles[baseVertex] = baseVertex;

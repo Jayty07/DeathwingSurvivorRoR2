@@ -87,17 +87,23 @@ namespace Deathwing.Modules
             main.loop = true;
             main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.35f * radius, 0.7f * radius);
+            // Small enough to sit in the grass rather than block the view of what is standing in the pool.
+            main.startSize = new ParticleSystem.MinMaxCurve(0.1f * radius, 0.22f * radius);
             main.startColor = new ParticleSystem.MinMaxGradient(DeathwingAssets.fireCore, DeathwingAssets.fireEdge);
-            main.startRotation = new ParticleSystem.MinMaxCurve(0f);
+            main.startRotation3D = true;
+            // Spun about the vertical axis only, so each flame is a different silhouette while still
+            // standing upright.
+            main.startRotationX = new ParticleSystem.MinMaxCurve(0f);
+            main.startRotationY = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            main.startRotationZ = new ParticleSystem.MinMaxCurve(0f);
             main.gravityModifier = 0f;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            main.maxParticles = 80;
+            main.maxParticles = 40;
 
             ParticleSystem.EmissionModule emission = flames.emission;
             emission.enabled = true;
-            emission.rateOverTime = 20f + radius * 4f;
+            emission.rateOverTime = 8f + radius * 2f;
 
             ParticleSystem.ShapeModule shape = flames.shape;
             shape.enabled = true;
