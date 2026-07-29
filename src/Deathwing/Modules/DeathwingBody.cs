@@ -60,7 +60,7 @@ namespace Deathwing.Modules
             // to be there from the first stage: high regen and a large health pool carry the early game
             // where items have not caught up yet.
             body.baseRegen = Tuning.baseRegen.Value;
-            body.levelRegen = 0.5f;
+            body.levelRegen = 0.3f;
             body.baseArmor = Tuning.baseArmor.Value;
             body.levelArmor = 1.5f;
             body.baseDamage = Tuning.baseDamage.Value;

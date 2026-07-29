@@ -16,6 +16,8 @@ namespace Deathwing.SkillStates
         public static float throwFraction = 0.55f;
         public static float projectileSpeed = 110f;
         public static float fallbackBlastRadius = 16f;
+        public static float forwardOffset = 2f;
+        public static float minGroundClearance = 1.5f;
 
         private float duration;
         private bool hasThrown;
@@ -56,15 +58,11 @@ namespace Deathwing.SkillStates
             }
 
             Ray aimRay = GetAimRay();
-
-            // Spawned clear of a body this wide so the boulder cannot clip his own collider, but along
-            // the aim ray rather than above it: an upward bias plus a fast projectile threw it well over
-            // the crosshair. It is aimed at the point the crosshair is actually over, so the arc from
-            // the raised spawn point still converges on what the player is looking at.
-            Vector3 origin = aimRay.origin + aimRay.direction * (2.5f * characterScale);
             Vector3 target = Physics.Raycast(aimRay, out RaycastHit aimHit, 400f, LayerIndex.world.mask | LayerIndex.entityPrecise.mask)
                 ? aimHit.point
                 : aimRay.GetPoint(200f);
+
+            Vector3 origin = SpawnPoint(aimRay);
             Vector3 direction = (target - origin).normalized;
 
             if (Projectiles.moltenBoulder)
@@ -90,6 +88,35 @@ namespace Deathwing.SkillStates
 
             CreateFireBlast(impact, fallbackBlastRadius, Tuning.boulderDamageCoefficient.Value, 2200f).Fire();
             SpawnFireEffect(impact, fallbackBlastRadius * 0.4f);
+        }
+
+        /// <summary>
+        /// Where the boulder leaves his hands. It has to clear a body this wide without ending up
+        /// underground: pushing it straight out along the aim ray buried it in any slope Deathwing was
+        /// standing on, so the forward offset is shortened until the spawn point has line of sight from
+        /// his chest, and then lifted to a minimum height above whatever is underneath it.
+        /// </summary>
+        private Vector3 SpawnPoint(Ray aimRay)
+        {
+            Vector3 chest = characterBody.corePosition + Vector3.up * (0.6f * characterScale);
+            Vector3 forward = aimRay.direction;
+            forward.y = Mathf.Max(forward.y, 0f);
+            forward = forward.sqrMagnitude > 0.001f ? forward.normalized : Vector3.up;
+
+            float reach = forwardOffset * characterScale;
+            if (Physics.Raycast(chest, forward, out RaycastHit blocked, reach, LayerIndex.world.mask))
+            {
+                reach = Mathf.Max(0f, blocked.distance - 0.5f);
+            }
+
+            Vector3 origin = chest + forward * reach;
+            float clearance = minGroundClearance * characterScale;
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit ground, clearance, LayerIndex.world.mask))
+            {
+                origin = ground.point + Vector3.up * clearance;
+            }
+
+            return origin;
         }
 
         public override InterruptPriority GetMinimumInterruptPriority() => InterruptPriority.Skill;

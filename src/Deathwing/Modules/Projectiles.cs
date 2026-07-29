@@ -1,3 +1,4 @@
+using System;
 using R2API;
 using RoR2;
 using RoR2.Projectile;
@@ -26,9 +27,32 @@ namespace Deathwing.Modules
             moltenBoulder = CreateMoltenBoulder();
         }
 
+        /// <summary>
+        /// First address that both resolves and carries a damage zone, so a candidate that exists but is
+        /// the wrong kind of projectile is skipped rather than producing a pool that does nothing.
+        /// </summary>
+        private static GameObject FindDotZoneSource(params string[] addresses)
+        {
+            foreach (string address in addresses)
+            {
+                GameObject candidate = DeathwingAssets.Load<GameObject>(address);
+                if (candidate && candidate.GetComponent<ProjectileDotZone>())
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
         private static GameObject CreateLavaPool()
         {
-            GameObject source = DeathwingAssets.Load<GameObject>(
+            // Fire-coloured damage zones are preferred over Acrid's acid: recolouring only reaches a
+            // material's colour properties, so a prefab whose artwork is green stays greenish however it
+            // is tinted. Acid is the fallback because it is the one that always resolves.
+            GameObject source = FindDotZoneSource(
+                "RoR2/Base/Mage/MageFirewallSegment.prefab",
+                "RoR2/Base/Brother/LunarNeedleGroundZone.prefab",
                 "RoR2/Base/Croco/CrocoLeapAcid.prefab",
                 "RoR2/Base/Croco/CrocoSpitAcid.prefab");
             if (!source)
@@ -36,6 +60,8 @@ namespace Deathwing.Modules
                 Log.Warning("No lava pool base projectile found; Molten Boulder will not leave lava.");
                 return null;
             }
+
+            Log.Info($"Lava pool cloned from '{source.name}'.");
 
             GameObject prefab = PrefabAPI.InstantiateClone(source, "DeathwingLavaPool");
             prefab.transform.localScale *= lavaPoolRadiusScale;
@@ -57,6 +83,22 @@ namespace Deathwing.Modules
 
             // Acrid's pool is acid green; recolouring it is what turns it into lava.
             DeathwingAssets.Recolor(prefab);
+
+            // Acid's green comes from its textures rather than a colour property, so a tint alone leaves
+            // it olive. When that is the prefab we ended up with, its own visuals are dropped and the
+            // pool is drawn out of Deathwing's fire effect instead.
+            if (source.name.IndexOf("Acid", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.enabled = false;
+                }
+
+                DeathwingLavaVisual visual = prefab.AddComponent<DeathwingLavaVisual>();
+                visual.radius = 3f * lavaPoolRadiusScale;
+                visual.scale = 1.4f;
+            }
+
             ContentAddition.AddProjectile(prefab);
             return prefab;
         }
@@ -88,9 +130,9 @@ namespace Deathwing.Modules
 
                 // The engineer's grenade explodes green, so its effects are replaced outright rather
                 // than recoloured in place.
-                if (DeathwingAssets.explosionEffect)
+                if (DeathwingAssets.boulderExplosionEffect)
                 {
-                    impactExplosion.explosionEffect = DeathwingAssets.explosionEffect;
+                    impactExplosion.explosionEffect = DeathwingAssets.boulderExplosionEffect;
                 }
 
                 if (DeathwingAssets.fireImpactEffect)

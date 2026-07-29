@@ -18,8 +18,13 @@ namespace Deathwing.SkillStates
         public static float coneHalfAngle = 18f;
         public static float moveSpeedMultiplier = 0.35f;
         public static float force = 250f;
-        public static int visualSteps = 4;
-        public static int damageSteps = 4;
+        public static int visualSteps = 7;
+        public static float visualStartDistance = 1.5f;
+        public static int damageSteps = 5;
+        public static float nearDamageDistance = 5f;
+
+        /// <summary>Model transforms the jet is emitted from, in order of preference.</summary>
+        private static readonly string[] muzzleNames = { "MuzzleCenter", "MuzzleGun", "MuzzleLeft", "HeadCenter", "Head" };
 
         private float windupDuration;
         private float maxDuration;
@@ -84,23 +89,43 @@ namespace Deathwing.SkillStates
         }
 
         /// <summary>
-        /// One tick of the cone. Each tick is a short-range blast walked along the aim ray, which keeps
-        /// the flame shaped like a cone without needing a custom collider or projectile.
+        /// The point the flame leaves. The chassis' muzzle transforms sit on the model, so the jet
+        /// follows it wherever the model actually is instead of floating out in front of the capsule.
+        /// </summary>
+        private Vector3 Mouth()
+        {
+            foreach (string childName in muzzleNames)
+            {
+                Transform muzzle = FindModelChild(childName);
+                if (muzzle)
+                {
+                    return muzzle.position;
+                }
+            }
+
+            return characterBody.corePosition + Vector3.up * (0.6f * characterScale);
+        }
+
+        /// <summary>
+        /// One tick of the cone. Each tick is a row of short-range blasts walked along the aim ray, which
+        /// keeps the flame shaped like a cone without needing a custom collider or projectile.
         /// </summary>
         private void Breathe()
         {
             Ray aimRay = GetAimRay();
-            Vector3 mouth = characterBody.corePosition + Vector3.up * (1.2f * characterScale);
+            Vector3 mouth = Mouth();
 
-            // The flame is drawn as a row of blasts down the aim ray so its visual reaches as far as its
-            // damage does; a single effect at one distance read as a short puff.
-            for (int i = 1; i <= visualSteps; i++)
+            // The flame is drawn as a row of blasts from the mouth outwards, so it reads as a continuous
+            // jet: stepping evenly across the full range left a gap between Deathwing and the first puff
+            // that made the fire look like it started in mid-air.
+            for (int i = 0; i < visualSteps; i++)
             {
-                float distance = range * i / visualSteps;
+                float t = (float)i / (visualSteps - 1);
+                float distance = Mathf.Lerp(visualStartDistance * characterScale, range, t * t);
                 DeathwingAssets.SpawnEffect(
                     DeathwingAssets.fireImpactEffect,
                     mouth + aimRay.direction * distance,
-                    Mathf.Lerp(1.2f, 3f, (float)i / visualSteps) * characterScale,
+                    Mathf.Lerp(0.8f, 3f, t) * characterScale,
                     gameObject);
             }
 
@@ -113,11 +138,13 @@ namespace Deathwing.SkillStates
 
             // Overlapping blasts walked along the aim ray approximate a cone: each is placed further
             // out and widened by the cone's angle, which avoids needing a custom collider.
-            for (int i = 1; i <= damageSteps; i++)
+            // The first blast sits close to the mouth so a target in his face is still burned; spacing
+            // them evenly across a 55m range left everything nearby untouched.
+            for (int i = 0; i < damageSteps; i++)
             {
-                float distance = range * i / damageSteps;
+                float distance = Mathf.Lerp(nearDamageDistance, range, (float)i / (damageSteps - 1));
                 Vector3 position = mouth + aimRay.direction * distance;
-                float radius = Mathf.Tan(coneHalfAngle * Mathf.Deg2Rad) * distance;
+                float radius = Mathf.Max(3f, Mathf.Tan(coneHalfAngle * Mathf.Deg2Rad) * distance);
 
                 BlastAttack blast = CreateFireBlast(position, radius, tickCoefficient / damageSteps, force);
                 blast.procCoefficient = tickInterval;

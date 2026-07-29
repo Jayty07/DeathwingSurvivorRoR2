@@ -32,10 +32,10 @@ namespace Deathwing.Modules
 
         internal static void Init(ConfigFile config)
         {
-            baseHealth = config.Bind("Stats", "Base Health", 420f, "Health at level 1. Vanilla survivors sit between 110 and 160.");
-            levelHealth = config.Bind("Stats", "Health Per Level", 126f, "Health gained per level.");
+            baseHealth = config.Bind("Stats", "Base Health", 380f, "Health at level 1. Vanilla survivors sit between 110 and 160.");
+            levelHealth = config.Bind("Stats", "Health Per Level", 114f, "Health gained per level.");
             baseArmor = config.Bind("Stats", "Base Armor", 40f, "Flat armor granted by Deathwing's elementium plating.");
-            baseRegen = config.Bind("Stats", "Base Health Regen", 4f, "Health per second at level 1. Vanilla survivors regenerate about 1.");
+            baseRegen = config.Bind("Stats", "Base Health Regen", 1.8f, "Health per second at level 1. Vanilla survivors regenerate about 1.");
             baseMoveSpeed = config.Bind("Stats", "Base Move Speed", 6f, "Vanilla survivors move at 7.");
             baseDamage = config.Bind("Stats", "Base Damage", 16f, "Vanilla survivors deal 12 base damage.");
             baseAttackSpeed = config.Bind("Stats", "Base Attack Speed", 0.8f, "Multiplier on all skill durations. Below 1 means slower, heavier swings.");

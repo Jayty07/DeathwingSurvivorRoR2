@@ -20,6 +20,7 @@ namespace Deathwing.Modules
         internal static readonly Color fireEdge = new Color(1f, 0.24f, 0.03f);
 
         internal static GameObject explosionEffect;
+        internal static GameObject boulderExplosionEffect;
         internal static GameObject fireImpactEffect;
         internal static GameObject eruptionEffect;
         internal static GameObject roarEffect;
@@ -36,6 +37,9 @@ namespace Deathwing.Modules
             // blast is green, for instance), and Deathwing's blasts should read as bigger and hotter
             // than anything he borrowed them from.
             explosionEffect = CreateFireEffect(explosionSource, "DeathwingExplosionEffect", 3.4f);
+            // The boulder's blast is a single rock landing, not a cataclysm; at the shared scale it
+            // filled the screen.
+            boulderExplosionEffect = CreateFireEffect(explosionSource, "DeathwingBoulderExplosionEffect", 1.8f);
             eruptionEffect = CreateFireEffect(explosionSource, "DeathwingEruptionEffect", 2.6f);
             roarEffect = CreateFireEffect(explosionSource, "DeathwingRoarEffect", 2.2f);
             fireImpactEffect = CreateFireEffect(impactSource, "DeathwingFireImpactEffect", 2.2f) ?? explosionEffect;
@@ -90,6 +94,13 @@ namespace Deathwing.Modules
                     Material copy = UnityEngine.Object.Instantiate(materials[i]);
                     copy.name = materials[i].name + "Deathwing";
 
+                    // Several of the game's effect shaders take their colour from a remap ramp texture
+                    // rather than a colour property, which is why tinting alone left Acrid's acid pool
+                    // green. Swapping the ramp for a fire one is what actually recolours those.
+                    TrySetTexture(copy, "_RemapTex", FireRamp);
+                    TrySetTexture(copy, "_ColorRamp", FireRamp);
+                    TrySetTexture(copy, "_Ramp", FireRamp);
+
                     // The colour lives under a different property name depending on which shader the
                     // borrowed effect uses, so every plausible one is set.
                     TrySetColor(copy, "_Color", fireEdge);
@@ -105,6 +116,17 @@ namespace Deathwing.Modules
                 }
 
                 renderer.sharedMaterials = materials;
+
+                // Trails carry their own material, which the shared-materials pass above does not cover.
+                if (renderer is ParticleSystemRenderer particleRenderer && particleRenderer.trailMaterial)
+                {
+                    Material trail = UnityEngine.Object.Instantiate(particleRenderer.trailMaterial);
+                    trail.name = particleRenderer.trailMaterial.name + "Deathwing";
+                    TrySetTexture(trail, "_RemapTex", FireRamp);
+                    TrySetColor(trail, "_TintColor", fireEdge);
+                    TrySetColor(trail, "_Color", fireEdge);
+                    particleRenderer.trailMaterial = trail;
+                }
             }
 
             foreach (ParticleSystem system in prefab.GetComponentsInChildren<ParticleSystem>(true))
@@ -216,6 +238,50 @@ namespace Deathwing.Modules
             }
         }
 
+        private static Texture2D fireRamp;
+
+        /// <summary>
+        /// A black-to-yellow ramp, generated rather than loaded: the game's colour ramps are not
+        /// reliably addressable, and a gradient is cheap enough to build.
+        /// </summary>
+        private static Texture2D FireRamp
+        {
+            get
+            {
+                if (fireRamp)
+                {
+                    return fireRamp;
+                }
+
+                const int width = 128;
+                fireRamp = new Texture2D(width, 1, TextureFormat.RGBA32, false)
+                {
+                    name = "texDeathwingFireRamp",
+                    wrapMode = TextureWrapMode.Clamp
+                };
+
+                for (int i = 0; i < width; i++)
+                {
+                    float t = (float)i / (width - 1);
+                    Color color = t < 0.5f
+                        ? Color.Lerp(new Color(0.08f, 0.01f, 0f), fireEdge, t * 2f)
+                        : Color.Lerp(fireEdge, new Color(1f, 0.95f, 0.55f), (t - 0.5f) * 2f);
+                    fireRamp.SetPixel(i, 0, color);
+                }
+
+                fireRamp.Apply();
+                return fireRamp;
+            }
+        }
+
+        private static void TrySetTexture(Material material, string property, Texture texture)
+        {
+            if (texture && material.HasProperty(property))
+            {
+                material.SetTexture(property, texture);
+            }
+        }
+
         private static void TrySetFloat(Material material, string property, float value)
         {
             if (material.HasProperty(property))
@@ -238,6 +304,22 @@ namespace Deathwing.Modules
                 scale = scale,
                 rootObject = origin
             }, true);
+        }
+
+        /// <summary>
+        /// Spawns an effect without going through the network, for visuals that already run on every
+        /// client (a projectile's own particles, for instance) and so must not be transmitted again.
+        /// </summary>
+        internal static void SpawnEffectLocal(GameObject effectPrefab, Vector3 position, float scale, float lifetime)
+        {
+            if (!effectPrefab)
+            {
+                return;
+            }
+
+            GameObject instance = UnityEngine.Object.Instantiate(effectPrefab, position, Quaternion.identity);
+            instance.transform.localScale *= scale;
+            UnityEngine.Object.Destroy(instance, lifetime);
         }
     }
 }
