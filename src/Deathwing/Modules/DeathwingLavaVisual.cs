@@ -60,8 +60,10 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// A pool of flame licking upwards off the ground: fast, small, short-lived particles spread over
-        /// the zone's footprint, cooling from yellow through orange to ember as they rise.
+        /// Fire rooted in the ground: each particle is planted where it spawns, stretches upwards as it
+        /// burns and fades out rather than travelling. Moving particles read as debris being thrown around
+        /// instead of ground that is on fire, and the flame sprite is only convincing while it stands
+        /// upright, so it is stretched on Y alone and kept vertical rather than facing the camera.
         /// </summary>
         private void BuildFlames()
         {
@@ -80,14 +82,15 @@ namespace Deathwing.Modules
             ParticleSystem.MainModule main = flames.main;
             main.duration = 1f;
             main.loop = true;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.9f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 4f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.25f * radius, 0.5f * radius);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.3f * radius, 0.55f * radius);
             main.startColor = new ParticleSystem.MinMaxGradient(DeathwingAssets.fireCore, DeathwingAssets.fireEdge);
-            main.gravityModifier = -0.05f;
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f);
+            main.gravityModifier = 0f;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            main.maxParticles = 60;
+            main.maxParticles = 80;
 
             ParticleSystem.EmissionModule emission = flames.emission;
             emission.enabled = true;
@@ -99,22 +102,60 @@ namespace Deathwing.Modules
             shape.radius = radius;
             shape.rotation = new Vector3(90f, 0f, 0f);
 
+            // Fades to nothing so a flame dies out instead of vanishing mid-burn.
             ParticleSystem.ColorOverLifetimeModule colorOverLifetime = flames.colorOverLifetime;
             colorOverLifetime.enabled = true;
-            colorOverLifetime.color = new ParticleSystem.MinMaxGradient(DeathwingAssets.FireGradient());
+            colorOverLifetime.color = new ParticleSystem.MinMaxGradient(FlameGradient());
 
+            // Separate axes: the flame grows tall from a fixed footprint rather than swelling in every
+            // direction, which is what makes it look anchored to the ground.
             ParticleSystem.SizeOverLifetimeModule sizeOverLifetime = flames.sizeOverLifetime;
             sizeOverLifetime.enabled = true;
-            sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.1f));
+            sizeOverLifetime.separateAxes = true;
+            sizeOverLifetime.x = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.7f));
+            sizeOverLifetime.y = new ParticleSystem.MinMaxCurve(
+                1f,
+                new AnimationCurve(
+                    new Keyframe(0f, 0.3f),
+                    new Keyframe(0.45f, 1.4f),
+                    new Keyframe(1f, 1.7f)));
+            sizeOverLifetime.z = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.7f));
 
             ParticleSystemRenderer renderer = holder.GetComponent<ParticleSystemRenderer>();
             renderer.sharedMaterial = material;
-            renderer.renderMode = ParticleSystemRenderMode.Billboard;
-            renderer.alignment = ParticleSystemRenderSpace.View;
+            // Billboards that stay upright: view alignment let the sprite lie flat on the ground when the
+            // camera looked down at the pool, which is why the flames appeared to be on their side.
+            renderer.renderMode = ParticleSystemRenderMode.VerticalBillboard;
+            renderer.alignment = ParticleSystemRenderSpace.World;
+            renderer.pivot = new Vector3(0f, 0.5f, 0f);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
             flames.Play();
+        }
+
+        /// <summary>
+        /// Colour and opacity over a flame's life: it catches quickly, burns yellow-hot, then cools to
+        /// ember as it fades out completely.
+        /// </summary>
+        private static Gradient FlameGradient()
+        {
+            return new Gradient
+            {
+                colorKeys = new[]
+                {
+                    new GradientColorKey(new Color(1f, 0.95f, 0.6f), 0f),
+                    new GradientColorKey(DeathwingAssets.fireCore, 0.3f),
+                    new GradientColorKey(DeathwingAssets.fireEdge, 1f)
+                },
+                alphaKeys = new[]
+                {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(1f, 0.15f),
+                    new GradientAlphaKey(0.55f, 0.6f),
+                    new GradientAlphaKey(0f, 1f)
+                }
+            };
         }
     }
 }
