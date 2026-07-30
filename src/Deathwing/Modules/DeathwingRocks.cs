@@ -257,13 +257,15 @@ namespace Deathwing.Modules
                     vertices[baseVertex + corner] = corners[faces[face][corner]];
                 }
 
+                // Wound so each face points out of the rock: the corners above are listed anticlockwise seen
+                // from outside, which is the order Unity treats as front-facing.
                 int baseTriangle = face * 6;
                 triangles[baseTriangle] = baseVertex;
-                triangles[baseTriangle + 1] = baseVertex + 2;
-                triangles[baseTriangle + 2] = baseVertex + 1;
+                triangles[baseTriangle + 1] = baseVertex + 1;
+                triangles[baseTriangle + 2] = baseVertex + 2;
                 triangles[baseTriangle + 3] = baseVertex;
-                triangles[baseTriangle + 4] = baseVertex + 3;
-                triangles[baseTriangle + 5] = baseVertex + 2;
+                triangles[baseTriangle + 4] = baseVertex + 2;
+                triangles[baseTriangle + 5] = baseVertex + 3;
             }
 
             Mesh mesh = new Mesh
