@@ -15,8 +15,14 @@ namespace Deathwing.Modules
         public float lifetime = 6f;
         public int rockCount = 5;
 
+        /// <summary>How long the borrowed artwork keeps switching itself back on. The zone re-enables its
+        /// visuals while it grows into place, so suppression has to be repeated over that window; past it
+        /// nothing touches them again and the component stops updating.</summary>
+        private const float SuppressionWindow = 1.5f;
+
         private Renderer[] borrowedRenderers;
         private Projector[] borrowedProjectors;
+        private float age;
 
         private void Start()
         {
@@ -35,9 +41,15 @@ namespace Deathwing.Modules
 
         private void Update()
         {
-            // Re-applied every frame rather than once: the acid pool scales and re-enables its visuals as
-            // it grows, so a single pass at spawn is undone a moment later.
+            // A single pass at spawn is undone a moment later, so it is repeated until the zone has settled
+            // and then this stops running entirely.
             Suppress();
+
+            age += Time.deltaTime;
+            if (age >= SuppressionWindow)
+            {
+                enabled = false;
+            }
         }
 
         private void Suppress()
@@ -116,7 +128,7 @@ namespace Deathwing.Modules
 
             ParticleSystem.ColorOverLifetimeModule colorOverLifetime = flames.colorOverLifetime;
             colorOverLifetime.enabled = true;
-            colorOverLifetime.color = new ParticleSystem.MinMaxGradient(FlameGradient());
+            colorOverLifetime.color = new ParticleSystem.MinMaxGradient(flameGradient);
 
             // Separate axes: the flame grows tall from a fixed footprint rather than swelling in every
             // direction, which is what makes it look anchored to the ground, and it collapses at the end of
@@ -152,13 +164,7 @@ namespace Deathwing.Modules
             renderer.renderMode = ParticleSystemRenderMode.Mesh;
             // Several widths, picked per particle: a pool of identical spikes looks like spears, while a mix
             // of sharp tongues and broad sheets covers the ground and reads as fire.
-            renderer.SetMeshes(new[]
-            {
-                DeathwingRocks.FlameMesh(0.16f),
-                DeathwingRocks.FlameMesh(0.34f),
-                DeathwingRocks.FlameMesh(0.6f),
-                DeathwingRocks.FlameMesh(0.95f)
-            });
+            renderer.SetMeshes(DeathwingRocks.FlameMeshes());
             renderer.alignment = ParticleSystemRenderSpace.World;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -168,26 +174,23 @@ namespace Deathwing.Modules
 
         /// <summary>
         /// Colour and opacity over a flame's life: it catches quickly, burns yellow-hot, then cools to
-        /// ember as it fades out completely.
+        /// ember as it fades out completely. Shared, because a pool never changes it.
         /// </summary>
-        private static Gradient FlameGradient()
+        private static readonly Gradient flameGradient = new Gradient
         {
-            return new Gradient
+            colorKeys = new[]
             {
-                colorKeys = new[]
-                {
-                    new GradientColorKey(new Color(1f, 0.95f, 0.6f), 0f),
-                    new GradientColorKey(DeathwingAssets.fireCore, 0.3f),
-                    new GradientColorKey(DeathwingAssets.fireEdge, 1f)
-                },
-                alphaKeys = new[]
-                {
-                    new GradientAlphaKey(0f, 0f),
-                    new GradientAlphaKey(1f, 0.15f),
-                    new GradientAlphaKey(0.55f, 0.6f),
-                    new GradientAlphaKey(0f, 1f)
-                }
-            };
-        }
+                new GradientColorKey(new Color(1f, 0.95f, 0.6f), 0f),
+                new GradientColorKey(DeathwingAssets.fireCore, 0.3f),
+                new GradientColorKey(DeathwingAssets.fireEdge, 1f)
+            },
+            alphaKeys = new[]
+            {
+                new GradientAlphaKey(0f, 0f),
+                new GradientAlphaKey(1f, 0.15f),
+                new GradientAlphaKey(0.55f, 0.6f),
+                new GradientAlphaKey(0f, 1f)
+            }
+        };
     }
 }

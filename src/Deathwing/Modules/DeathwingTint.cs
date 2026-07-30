@@ -33,6 +33,9 @@ namespace Deathwing.Modules
 
             applied = true;
 
+            // Nothing left to do after the one pass, so stop being ticked at all.
+            enabled = false;
+
             if (!Tuning.tintModel.Value)
             {
                 return;

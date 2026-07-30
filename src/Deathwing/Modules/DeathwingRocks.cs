@@ -16,15 +16,22 @@ namespace Deathwing.Modules
         private static readonly Color rockAlbedo = new Color(0.42f, 0.26f, 0.22f);
         private static readonly Color rockEmission = new Color(2.4f, 0.6f, 0.08f);
 
+        /// <summary>Rocks generated once and shared: a pool spawns several and Cataclysm leaves eighteen
+        /// pools, so building a mesh per rock would recalculate normals a hundred times over a few seconds.</summary>
+        private const int RockVariants = 6;
+
         private static Material rockMaterial;
         private static bool rockMaterialResolved;
+        private static Material[] rockMaterials;
+        private static Mesh[] rockMeshes;
+        private static Mesh[] flameMeshes;
 
         /// <summary>
         /// Charred stone, built off the chassis' own material. A body prefab's renderers have no material
         /// assigned: the game applies them from the character model's renderer infos when the body spawns,
         /// so reading `sharedMaterial` off the prefab returns nothing and it has to come from those infos.
         /// </summary>
-        internal static Material RockMaterial()
+        private static Material RockMaterial()
         {
             if (rockMaterialResolved)
             {
@@ -49,6 +56,62 @@ namespace Deathwing.Modules
 
             Log.Info($"Rock material built from '{template.name}' (shader '{template.shader?.name}').");
             return rockMaterial;
+        }
+
+        /// <summary>The stone and the burn overlay the game draws over burning enemies, layered so the
+        /// rocks look alight rather than merely tinted. Built once and shared by every rock.</summary>
+        private static Material[] RockMaterials()
+        {
+            if (rockMaterials != null)
+            {
+                return rockMaterials;
+            }
+
+            Material stone = RockMaterial();
+            if (!stone)
+            {
+                return null;
+            }
+
+            Material burning = DeathwingAssets.BurnMaterial();
+            rockMaterials = burning ? new[] { stone, burning } : new[] { stone };
+            return rockMaterials;
+        }
+
+        private static Mesh[] RockMeshes()
+        {
+            if (rockMeshes != null)
+            {
+                return rockMeshes;
+            }
+
+            rockMeshes = new Mesh[RockVariants];
+            for (int i = 0; i < RockVariants; i++)
+            {
+                rockMeshes[i] = RockMesh(i * 977);
+            }
+
+            return rockMeshes;
+        }
+
+        /// <summary>
+        /// The set of flame shapes a pool's particles are drawn from, narrow tongues through to broad
+        /// sheets, so a pool covers ground instead of bristling with identical spikes.
+        /// </summary>
+        internal static Mesh[] FlameMeshes()
+        {
+            if (flameMeshes == null)
+            {
+                flameMeshes = new[]
+                {
+                    FlameMesh(0.16f),
+                    FlameMesh(0.34f),
+                    FlameMesh(0.6f),
+                    FlameMesh(0.95f)
+                };
+            }
+
+            return flameMeshes;
         }
 
         private static Material ChassisMaterial()
@@ -94,7 +157,7 @@ namespace Deathwing.Modules
         /// them from base to tip.
         /// </summary>
         /// <param name="width">Base radius. Narrow values give sharp spikes, wide ones broad sheets.</param>
-        internal static Mesh FlameMesh(float width)
+        private static Mesh FlameMesh(float width)
         {
             const int sides = 5;
             Vector3[] vertices = new Vector3[sides * 3];
@@ -224,8 +287,9 @@ namespace Deathwing.Modules
         /// </summary>
         internal static void Scatter(Vector3 origin, float radius, int count, float size, float lifetime)
         {
-            Material material = RockMaterial();
-            if (!material)
+            Mesh[] meshes = RockMeshes();
+            Material[] materials = RockMaterials();
+            if (meshes == null || materials == null)
             {
                 return;
             }
@@ -245,7 +309,10 @@ namespace Deathwing.Modules
                 }
 
                 float scale = size * Random.Range(0.6f, 1.4f);
-                position.y -= scale * 0.35f;
+
+                // Lifted so the chunk stands proud of the surface with only its base buried; sinking it by
+                // its own half-height left nothing but the very top showing.
+                position.y += scale * 0.2f;
 
                 GameObject rock = new GameObject($"DeathwingRock{i}");
                 rock.transform.position = position;
@@ -255,15 +322,9 @@ namespace Deathwing.Modules
                     Random.Range(-12f, 12f));
                 rock.transform.localScale = Vector3.one * scale;
 
-                rock.AddComponent<MeshFilter>().sharedMesh = RockMesh(Random.Range(0, 1000));
+                rock.AddComponent<MeshFilter>().sharedMesh = meshes[Random.Range(0, meshes.Length)];
                 MeshRenderer renderer = rock.AddComponent<MeshRenderer>();
-
-                // The overlay the game draws over burning enemies, layered over the stone so the rocks look
-                // like they are alight rather than merely tinted.
-                Material burning = DeathwingAssets.BurnMaterial();
-                renderer.sharedMaterials = burning
-                    ? new[] { material, burning }
-                    : new[] { material };
+                renderer.sharedMaterials = materials;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                 UnityEngine.Object.Destroy(rock, lifetime);

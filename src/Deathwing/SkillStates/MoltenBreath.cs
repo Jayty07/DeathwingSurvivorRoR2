@@ -30,6 +30,8 @@ namespace Deathwing.SkillStates
         private float maxDuration;
         private float tickStopwatch;
         private bool windupFinished;
+        private Transform mouthTransform;
+        private bool mouthSearched;
 
         public override void OnEnter()
         {
@@ -94,12 +96,23 @@ namespace Deathwing.SkillStates
         /// </summary>
         private Vector3 Mouth()
         {
-            foreach (string childName in muzzleNames)
+            if (mouthTransform)
             {
-                Transform muzzle = FindModelChild(childName);
-                if (muzzle)
+                return mouthTransform.position;
+            }
+
+            // Resolved once: the lookup walks the model's child locator by name, and the breath asks for
+            // the mouth several times a second for as long as it is held.
+            if (!mouthSearched)
+            {
+                mouthSearched = true;
+                foreach (string childName in muzzleNames)
                 {
-                    return muzzle.position;
+                    mouthTransform = FindModelChild(childName);
+                    if (mouthTransform)
+                    {
+                        return mouthTransform.position;
+                    }
                 }
             }
 

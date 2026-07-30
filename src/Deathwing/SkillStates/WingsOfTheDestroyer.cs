@@ -20,9 +20,7 @@ namespace Deathwing.SkillStates
         public static float horizontalSpeedMultiplier = 2.1f;
         public static float verticalSpeed = 11f;
         public static float hoverDrift = -0.6f;
-        public static float wingBeatInterval = 0.55f;
 
-        private float wingBeatStopwatch;
         private bool wantsToDive;
         private bool wantsToLand;
         private float maxFlightDuration;
@@ -60,13 +58,6 @@ namespace Deathwing.SkillStates
             if (characterMotor)
             {
                 characterMotor.velocity = CalculateFlightVelocity();
-            }
-
-            wingBeatStopwatch += GetDeltaTime();
-            if (wingBeatStopwatch >= wingBeatInterval)
-            {
-                wingBeatStopwatch = 0f;
-                Util.PlaySound(Sounds.wingFlap, gameObject);
             }
 
             if (!isAuthority)
