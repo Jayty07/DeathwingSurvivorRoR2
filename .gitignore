@@ -4,3 +4,7 @@ obj/
 *.suo
 .vs/
 .idea/
+
+# Extracted art is not ours to redistribute; see docs/CUSTOM_MODEL.md
+*.bundle
+deathwing.manifest

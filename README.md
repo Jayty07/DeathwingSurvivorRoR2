@@ -113,13 +113,14 @@ lava pools are simply skipped. A game update that renames an address costs visua
 
 ## Replacing the model
 
-The placeholder art is a tinted Commando. To use a real Deathwing model:
+The placeholder art is a tinted Commando. **[docs/CUSTOM_MODEL.md](docs/CUSTOM_MODEL.md)** is the full
+walkthrough: exporting the model, the prefab hierarchy and `ChildLocator` names the mod reads, building
+the bundle, and mapping animation clips to each skill. In short:
 
-1. Build an AssetBundle containing the rigged model (Unity 2021.3.x, matching the game's version,
-   via ThunderKit or a plain Unity project).
-2. Load the bundle in `DeathwingAssets.Init()` and set the mesh/materials in
-   `DeathwingBody.ReplaceModel`, which is the single place that touches
-   `CharacterModel.baseRendererInfos`.
+1. Build an AssetBundle containing the rigged model, with the Unity version the game was built with
+   (via ThunderKit or a plain Unity project).
+2. Load the bundle in `DeathwingAssets` and set the mesh/materials in `DeathwingBody.ReplaceModel`,
+   which is the single place that touches `CharacterModel.baseRendererInfos`.
 3. Adjust `Tuning.modelScale` plus the hitbox offsets in `DeathwingBody.AddHitBoxes` to the new mesh.
 
 No Blizzard assets are included in this repository. The World of Warcraft model, textures and sounds
