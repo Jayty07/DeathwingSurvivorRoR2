@@ -23,6 +23,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> boulderCooldown;
         internal static ConfigEntry<float> breathDamageCoefficient;
         internal static ConfigEntry<float> breathCooldown;
+        internal static ConfigEntry<float> breathWidth;
         internal static ConfigEntry<float> chargeDamageCoefficient;
         internal static ConfigEntry<float> chargeCooldown;
         internal static ConfigEntry<float> flightCooldown;
@@ -50,6 +51,8 @@ namespace Deathwing.Modules
             boulderCooldown = config.Bind("Skills", "Molten Boulder Cooldown", 5f, "Cooldown in seconds.");
             breathDamageCoefficient = config.Bind("Skills", "Molten Breath Damage", 4.5f, "Damage coefficient per second of fire breath.");
             breathCooldown = config.Bind("Skills", "Molten Breath Cooldown", 7f, "Cooldown in seconds.");
+            breathWidth = config.Bind("Skills", "Molten Breath Width", 3.2f,
+                "How much wider the flame is drawn than the flamethrower drone sprays it. Visual only.");
             chargeDamageCoefficient = config.Bind("Skills", "Elementium Charge Damage", 5f, "Damage coefficient per enemy trampled.");
             chargeCooldown = config.Bind("Skills", "Elementium Charge Cooldown", 8f, "Cooldown in seconds.");
             flightCooldown = config.Bind("Skills", "Wings Of The Destroyer Cooldown", 12f, "Cooldown in seconds. Unused flight time is partially refunded.");

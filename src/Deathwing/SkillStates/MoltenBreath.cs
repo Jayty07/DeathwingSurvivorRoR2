@@ -192,7 +192,10 @@ namespace Deathwing.SkillStates
             // Stretched along its own forward axis to cover the range the damage actually reaches, and
             // widened with Deathwing rather than with the range so it stays a jet and not a wall.
             float length = range / authoredDistance;
-            jet.transform.localScale = new Vector3(characterScale, characterScale, length);
+            // Widened well past the drone's own spray: a dragon's breath fills the cone the damage covers,
+            // where the drone's width was a thin line down the middle of it.
+            float width = characterScale * Tuning.breathWidth.Value;
+            jet.transform.localScale = new Vector3(width, width, length);
 
             AimJet();
         }
