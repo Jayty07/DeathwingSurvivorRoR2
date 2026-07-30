@@ -35,6 +35,7 @@ namespace Deathwing.SkillStates
         private Transform mouthTransform;
         private bool mouthSearched;
         private GameObject jet;
+        private bool jetSpawned;
 
         public override void OnEnter()
         {
@@ -135,8 +136,9 @@ namespace Deathwing.SkillStates
             Vector3 mouth = Mouth();
 
             // Only drawn as a row of puffs when the borrowed jet could not be resolved: the jet is a single
-            // continuous effect, so puffing impact effects along it as well just muddies it.
-            if (!jet)
+            // continuous effect, so puffing impact effects along it as well just muddies it. Keyed off having
+            // spawned it rather than off the live instance, so losing the instance does not bring them back.
+            if (!jetSpawned)
             {
                 for (int i = 0; i < visualSteps; i++)
                 {
@@ -187,15 +189,35 @@ namespace Deathwing.SkillStates
                 return;
             }
 
+            jetSpawned = true;
             jet = UnityEngine.Object.Instantiate(prefab, Mouth(), Quaternion.identity);
 
-            // Stretched along its own forward axis to cover the range the damage actually reaches, and
-            // widened with Deathwing rather than with the range so it stays a jet and not a wall.
+            // The drone only sprays in short bursts, so its effect carries timers that tore the jet down
+            // partway through the breath; the fallback puffs then reappeared for the rest of it.
+            foreach (DestroyOnTimer timer in jet.GetComponentsInChildren<DestroyOnTimer>(true))
+            {
+                UnityEngine.Object.Destroy(timer);
+            }
+
+            // Sized by the particle systems rather than by the transform: they simulate in world space, where
+            // scaling the transform moves the emitter about but leaves the particles the size a drone sprays
+            // them. Speed carries them further, which is what makes the jet reach.
             float length = range / authoredDistance;
-            // Widened well past the drone's own spray: a dragon's breath fills the cone the damage covers,
-            // where the drone's width was a thin line down the middle of it.
             float width = characterScale * Tuning.breathWidth.Value;
-            jet.transform.localScale = new Vector3(width, width, length);
+            foreach (ParticleSystem system in jet.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                ParticleSystem.MainModule main = system.main;
+                main.startSizeMultiplier *= width;
+                main.startSpeedMultiplier *= length;
+                // Held for as long as Deathwing breathes, where the drone's burst runs out on its own.
+                main.loop = true;
+
+                ParticleSystem.ShapeModule shape = system.shape;
+                shape.radius *= width;
+                shape.scale *= width;
+
+                system.Play();
+            }
 
             AimJet();
         }
@@ -217,8 +239,12 @@ namespace Deathwing.SkillStates
 
             if (jet)
             {
-                // Given a moment to burn out rather than vanishing mid-frame.
-                jet.transform.SetParent(null);
+                // Stops spraying but is given a moment to burn out rather than vanishing mid-frame.
+                foreach (ParticleSystem system in jet.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    system.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                }
+
                 UnityEngine.Object.Destroy(jet, jetFadeDuration);
             }
 
