@@ -22,6 +22,8 @@ namespace Deathwing.SkillStates
         public static float visualStartDistance = 1.5f;
         public static int damageSteps = 5;
         public static float nearDamageDistance = 5f;
+        /// <summary>How long the jet is left burning after the breath ends, so it dies down.</summary>
+        public static float jetFadeDuration = 0.4f;
 
         /// <summary>Model transforms the jet is emitted from, in order of preference.</summary>
         private static readonly string[] muzzleNames = { "MuzzleCenter", "MuzzleGun", "MuzzleLeft", "HeadCenter", "Head" };
@@ -32,6 +34,7 @@ namespace Deathwing.SkillStates
         private bool windupFinished;
         private Transform mouthTransform;
         private bool mouthSearched;
+        private GameObject jet;
 
         public override void OnEnter()
         {
@@ -69,7 +72,10 @@ namespace Deathwing.SkillStates
             {
                 windupFinished = true;
                 Util.PlaySound(Sounds.breathLoop, gameObject);
+                StartJet();
             }
+
+            AimJet();
 
             tickStopwatch += GetDeltaTime();
             if (tickStopwatch >= tickInterval)
@@ -128,18 +134,20 @@ namespace Deathwing.SkillStates
             Ray aimRay = GetAimRay();
             Vector3 mouth = Mouth();
 
-            // The flame is drawn as a row of blasts from the mouth outwards, so it reads as a continuous
-            // jet: stepping evenly across the full range left a gap between Deathwing and the first puff
-            // that made the fire look like it started in mid-air.
-            for (int i = 0; i < visualSteps; i++)
+            // Only drawn as a row of puffs when the borrowed jet could not be resolved: the jet is a single
+            // continuous effect, so puffing impact effects along it as well just muddies it.
+            if (!jet)
             {
-                float t = (float)i / (visualSteps - 1);
-                float distance = Mathf.Lerp(visualStartDistance * characterScale, range, t * t);
-                DeathwingAssets.SpawnEffect(
-                    DeathwingAssets.fireImpactEffect,
-                    mouth + aimRay.direction * distance,
-                    Mathf.Lerp(0.8f, 3f, t) * characterScale,
-                    gameObject);
+                for (int i = 0; i < visualSteps; i++)
+                {
+                    float t = (float)i / (visualSteps - 1);
+                    float distance = Mathf.Lerp(visualStartDistance * characterScale, range, t * t);
+                    DeathwingAssets.SpawnEffect(
+                        DeathwingAssets.fireImpactEffect,
+                        mouth + aimRay.direction * distance,
+                        Mathf.Lerp(0.8f, 3f, t) * characterScale,
+                        gameObject);
+                }
             }
 
             if (!isAuthority)
@@ -166,9 +174,51 @@ namespace Deathwing.SkillStates
             }
         }
 
+        /// <summary>
+        /// Borrows the flamethrower drone's jet rather than drawing the flame out of impact effects. It is a
+        /// persistent effect rather than a one-shot, so it is instantiated once and steered every step; it is
+        /// left unparented because the model's muzzle does not point where Deathwing is aiming.
+        /// </summary>
+        private void StartJet()
+        {
+            GameObject prefab = DeathwingAssets.FlamethrowerEffect(out float authoredDistance);
+            if (!prefab)
+            {
+                return;
+            }
+
+            jet = UnityEngine.Object.Instantiate(prefab, Mouth(), Quaternion.identity);
+
+            // Stretched along its own forward axis to cover the range the damage actually reaches, and
+            // widened with Deathwing rather than with the range so it stays a jet and not a wall.
+            float length = range / authoredDistance;
+            jet.transform.localScale = new Vector3(characterScale, characterScale, length);
+
+            AimJet();
+        }
+
+        private void AimJet()
+        {
+            if (!jet)
+            {
+                return;
+            }
+
+            jet.transform.position = Mouth();
+            jet.transform.rotation = Quaternion.LookRotation(GetAimRay().direction);
+        }
+
         public override void OnExit()
         {
             Util.PlaySound(Sounds.breathStop, gameObject);
+
+            if (jet)
+            {
+                // Given a moment to burn out rather than vanishing mid-frame.
+                jet.transform.SetParent(null);
+                UnityEngine.Object.Destroy(jet, jetFadeDuration);
+            }
+
             base.OnExit();
         }
 

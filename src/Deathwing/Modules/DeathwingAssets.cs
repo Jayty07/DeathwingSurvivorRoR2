@@ -1,4 +1,5 @@
 using System;
+using EntityStates;
 using R2API;
 using RoR2;
 using UnityEngine;
@@ -25,6 +26,10 @@ namespace Deathwing.Modules
         internal static GameObject fireImpactEffect;
         internal static GameObject eruptionEffect;
         internal static GameObject roarEffect;
+
+        private static GameObject flamethrowerEffect;
+        private static bool flamethrowerResolved;
+        private static float flamethrowerDistance = 20f;
 
         internal static void Init()
         {
@@ -176,6 +181,45 @@ namespace Deathwing.Modules
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// The flame jet the flamethrower drone sprays, along with the distance it was authored to cover so
+        /// it can be stretched to Deathwing's range. Read off the drone's own skill state rather than an
+        /// address: the state carries the prefab as a serialized field, and the catalog fills those in when
+        /// it builds a state, so this is whatever the drone is actually using.
+        /// </summary>
+        internal static GameObject FlamethrowerEffect(out float authoredDistance)
+        {
+            authoredDistance = flamethrowerDistance;
+            if (flamethrowerResolved)
+            {
+                return flamethrowerEffect;
+            }
+
+            flamethrowerResolved = true;
+
+            EntityState state = EntityStateCatalog.InstantiateState(typeof(EntityStates.Drone.DroneWeapon.Flamethrower))
+                ?? EntityStateCatalog.InstantiateState(typeof(EntityStates.Mage.Weapon.Flamethrower));
+            EntityStates.Mage.Weapon.Flamethrower flamethrower = state as EntityStates.Mage.Weapon.Flamethrower;
+
+            if (flamethrower != null && flamethrower.flamethrowerEffectPrefab)
+            {
+                flamethrowerEffect = flamethrower.flamethrowerEffectPrefab;
+                if (flamethrower.maxDistance > 1f)
+                {
+                    flamethrowerDistance = flamethrower.maxDistance;
+                }
+
+                Log.Info($"Breath jet taken from '{flamethrowerEffect.name}' ({flamethrowerDistance}m).");
+            }
+            else
+            {
+                Log.Warning("No flamethrower effect resolved; the breath will be drawn as fire impacts.");
+            }
+
+            authoredDistance = flamethrowerDistance;
+            return flamethrowerEffect;
         }
 
         /// <summary>
