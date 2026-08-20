@@ -46,6 +46,7 @@ namespace Deathwing.Modules
 
             GameObject root = new GameObject(name);
             root.transform.localScale = Vector3.one * Tuning.realModelScale.Value;
+            root.layer = LayerIndex.defaultLayer.intVal;
 
             Transform[] bones = BuildSkeleton(data, root.transform);
             Matrix4x4[] bindPoses = BindPoses(bones, root.transform);
@@ -65,6 +66,7 @@ namespace Deathwing.Modules
                 // pops out of existence when its bind bounds leave the frustum reads as a bug.
                 renderer.updateWhenOffscreen = true;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                rendererObject.layer = root.layer;
             }
 
             Animation animation = root.AddComponent<Animation>();
@@ -136,6 +138,9 @@ namespace Deathwing.Modules
             Mesh mesh = new Mesh
             {
                 name = data.name,
+                // Assets built at load time are reachable only through the body prefab; without this
+                // the scene change into a stage can unload them, which empties the renderer.
+                hideFlags = HideFlags.DontUnloadUnusedAsset,
                 vertices = data.vertices,
                 normals = data.normals,
                 uv = data.uv,
@@ -169,6 +174,7 @@ namespace Deathwing.Modules
             {
                 material = UnityEngine.Object.Instantiate(template);
                 material.name = "matDeathwing";
+                material.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 material.SetTexture("_MainTex", diffuse);
                 material.SetColor("_Color", Color.white);
                 if (material.HasProperty("_EmTex"))
@@ -186,7 +192,11 @@ namespace Deathwing.Modules
             }
             else
             {
-                material = new Material(Shader.Find("Standard")) { name = "matDeathwing" };
+                material = new Material(Shader.Find("Standard"))
+                {
+                    name = "matDeathwing",
+                    hideFlags = HideFlags.DontUnloadUnusedAsset
+                };
                 material.mainTexture = diffuse;
                 if (emissive)
                 {
@@ -242,7 +252,8 @@ namespace Deathwing.Modules
                     // Legacy clips are the only kind that can be authored at runtime; the
                     // AnimatorController a modern clip needs cannot be built outside the editor.
                     legacy = true,
-                    wrapMode = WrapMode.Loop
+                    wrapMode = WrapMode.Loop,
+                    hideFlags = HideFlags.DontUnloadUnusedAsset
                 };
 
                 foreach (TrackData track in clipData.tracks)
@@ -417,7 +428,8 @@ namespace Deathwing.Modules
                     Texture2D texture = new Texture2D(width, height, format, mips > 1)
                     {
                         name = "texDeathwing_" + name,
-                        wrapMode = TextureWrapMode.Clamp
+                        wrapMode = TextureWrapMode.Clamp,
+                        hideFlags = HideFlags.DontUnloadUnusedAsset
                     };
                     texture.LoadRawTextureData(pixels);
                     texture.Apply(false, true);
