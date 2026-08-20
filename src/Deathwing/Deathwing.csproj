@@ -24,6 +24,17 @@
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    Art is embedded when it is present, so a release is a single file to install, and skipped when it
+    is not, so the mod still builds and runs (with the placeholder model and the chassis' icons) from
+    a clone that carries no art. art/ is gitignored: it is not ours to redistribute.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/deathwing.dwm" LogicalName="Deathwing.deathwing.dwm"
+                     Condition="Exists('$(MSBuildThisFileDirectory)../../art/deathwing.dwm')" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/icons/*.png" LogicalName="Deathwing.Icons.%(Filename).png" />
+  </ItemGroup>
+
   <!-- Optional: pass -p:GameDir="/path/to/Risk of Rain 2" to install the plugin on build. -->
   <Target Name="CopyToGame" AfterTargets="Build" Condition="'$(GameDir)' != '' And Exists('$(GameDir)/BepInEx/plugins')">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)/BepInEx/plugins/Deathwing" />

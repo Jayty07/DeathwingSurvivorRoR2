@@ -25,8 +25,14 @@ namespace Deathwing.SkillStates
         /// <summary>How long the jet is left burning after the breath ends, so it dies down.</summary>
         public static float jetFadeDuration = 0.4f;
 
-        /// <summary>Model transforms the jet is emitted from, in order of preference.</summary>
-        private static readonly string[] muzzleNames = { "MuzzleCenter", "MuzzleGun", "MuzzleLeft", "HeadCenter", "Head" };
+        /// <summary>
+        /// Model transforms the jet is emitted from, in order of preference. The dragon's own jaw comes
+        /// first; the rest are the chassis' muzzles, used while the placeholder model is in play.
+        /// </summary>
+        private static readonly string[] muzzleNames =
+        {
+            DeathwingBody.mouthChildName, "MuzzleCenter", "MuzzleGun", "MuzzleLeft", "HeadCenter", "Head"
+        };
 
         private float windupDuration;
         private float maxDuration;
@@ -46,7 +52,8 @@ namespace Deathwing.SkillStates
             StartAimMode(maxDuration + 1f);
             characterBody.SetAimTimer(maxDuration + 1f);
             Util.PlaySound(Sounds.breathStart, gameObject);
-            PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", windupDuration, 0.1f);
+            PlayDragonAnimation(DeathwingClips.breathStart, windupDuration,
+                "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
         }
 
         public override void FixedUpdate()
@@ -74,6 +81,12 @@ namespace Deathwing.SkillStates
                 windupFinished = true;
                 Util.PlaySound(Sounds.breathLoop, gameObject);
                 StartJet();
+
+                // Jaw held open for as long as the flame lasts.
+                if (dragon)
+                {
+                    dragon.PlayHeld(DeathwingClips.breathLoop, 0.15f);
+                }
             }
 
             AimJet();
@@ -236,6 +249,11 @@ namespace Deathwing.SkillStates
         public override void OnExit()
         {
             Util.PlaySound(Sounds.breathStop, gameObject);
+
+            if (dragon)
+            {
+                dragon.Release(DeathwingClips.breathEnd, 0.4f);
+            }
 
             if (jet)
             {

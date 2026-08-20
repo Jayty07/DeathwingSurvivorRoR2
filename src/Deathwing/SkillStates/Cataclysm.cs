@@ -36,7 +36,8 @@ namespace Deathwing.SkillStates
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, channelDuration + eruptionDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
-            PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", channelDuration, 0.1f);
+            PlayDragonAnimation(DeathwingClips.cataclysm, channelDuration,
+                "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 4f * characterScale, gameObject);
         }
 

@@ -29,7 +29,8 @@ namespace Deathwing.SkillStates
             StartAimMode(duration + 1f);
             characterBody.SetAimTimer(duration + 1f);
             Util.PlaySound(Sounds.boulderWindup, gameObject);
-            PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", duration, 0.1f);
+            PlayDragonAnimation(DeathwingClips.boulder, duration,
+                "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
         }
 
         public override void FixedUpdate()

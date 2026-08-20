@@ -21,8 +21,9 @@ namespace Deathwing.Modules
 
             SetupPassive(skillLocator);
 
-            // Icons come off the chassis' own skills: skill icon addresses are not stable between game
-            // versions, and a null icon leaves an unreadable blank slot in the HUD.
+            // Deathwing's own icons, each falling back to the chassis' icon for that slot: skill icon
+            // addresses are not stable between game versions, and a null icon leaves an unreadable
+            // blank slot in the HUD.
             Sprite primaryIcon = ChassisIcon(skillLocator.primary);
             Sprite secondaryIcon = ChassisIcon(skillLocator.secondary);
             Sprite utilityIcon = ChassisIcon(skillLocator.utility);
@@ -32,7 +33,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingMoltenClaw",
                 nameToken: Tokens.primaryName,
                 descriptionToken: Tokens.primaryDescription,
-                icon: primaryIcon,
+                icon: DeathwingIcons.Get(DeathwingIcons.onslaught, primaryIcon),
                 stepCount: MoltenClaw.comboLength);
             // A primary needs a stock to spend: with a max of zero the slot is permanently greyed out.
             // A zero recharge interval restocks it instantly, which is how vanilla primaries work.
@@ -46,7 +47,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingMoltenBoulder",
                 nameToken: Tokens.secondaryName,
                 descriptionToken: Tokens.secondaryDescription,
-                icon: secondaryIcon);
+                icon: DeathwingIcons.Get(DeathwingIcons.lavaBurst, secondaryIcon));
             boulder.baseRechargeInterval = Tuning.boulderCooldown.Value;
             boulder.baseMaxStock = 1;
             boulder.activationStateMachineName = "Weapon";
@@ -56,7 +57,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingMoltenBreath",
                 nameToken: Tokens.breathName,
                 descriptionToken: Tokens.breathDescription,
-                icon: secondaryIcon);
+                icon: DeathwingIcons.Get(DeathwingIcons.moltenFlame, secondaryIcon));
             breath.baseRechargeInterval = Tuning.breathCooldown.Value;
             breath.baseMaxStock = 1;
             breath.activationStateMachineName = "Weapon";
@@ -70,7 +71,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingElementiumCharge",
                 nameToken: Tokens.utilityName,
                 descriptionToken: Tokens.utilityDescription,
-                icon: utilityIcon);
+                icon: DeathwingIcons.Get(DeathwingIcons.destroyer, utilityIcon));
             charge.baseRechargeInterval = Tuning.chargeCooldown.Value;
             charge.baseMaxStock = 1;
             charge.activationStateMachineName = "Body";
@@ -82,7 +83,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingWings",
                 nameToken: Tokens.flightName,
                 descriptionToken: Tokens.flightDescription,
-                icon: utilityIcon);
+                icon: DeathwingIcons.Get(DeathwingIcons.dragonflight, utilityIcon));
             flight.baseRechargeInterval = Tuning.flightCooldown.Value;
             flight.baseMaxStock = 1;
             flight.activationStateMachineName = "Body";
@@ -98,7 +99,7 @@ namespace Deathwing.Modules
                 skillName: "DeathwingCataclysm",
                 nameToken: Tokens.specialName,
                 descriptionToken: Tokens.specialDescription,
-                icon: specialIcon);
+                icon: DeathwingIcons.Get(DeathwingIcons.cataclysm, specialIcon));
             cataclysm.baseRechargeInterval = Tuning.cataclysmCooldown.Value;
             cataclysm.baseMaxStock = 1;
             cataclysm.activationStateMachineName = "Body";
@@ -118,7 +119,8 @@ namespace Deathwing.Modules
             skillLocator.passiveSkill.enabled = true;
             skillLocator.passiveSkill.skillNameToken = Tokens.passiveName;
             skillLocator.passiveSkill.skillDescriptionToken = Tokens.passiveDescription;
-            skillLocator.passiveSkill.icon = ChassisIcon(skillLocator.special);
+            skillLocator.passiveSkill.icon =
+                DeathwingIcons.Get(DeathwingIcons.aspectOfDeath, ChassisIcon(skillLocator.special));
         }
 
         /// <summary>The icon the chassis already used for a slot; always resolved, unlike an address.</summary>

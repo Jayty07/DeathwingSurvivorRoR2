@@ -6,5 +6,7 @@ obj/
 .idea/
 
 # Extracted art is not ours to redistribute; see docs/CUSTOM_MODEL.md
+art/
 *.bundle
+*.dwm
 deathwing.manifest

@@ -39,7 +39,7 @@ namespace Deathwing.SkillStates
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, maxDiveDuration + landingDuration);
             Util.PlaySound(Sounds.diveStart, gameObject);
-            PlayCrossfade("Body", "Fall", 0.1f);
+            PlayDragonAnimation(DeathwingClips.dive, maxDiveDuration, "Body", "Fall");
         }
 
         public override void FixedUpdate()

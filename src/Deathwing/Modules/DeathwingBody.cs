@@ -1,3 +1,4 @@
+using System;
 using R2API;
 using RoR2;
 using UnityEngine;
@@ -8,7 +9,7 @@ namespace Deathwing.Modules
     /// Builds the survivor's body prefab. The commando body is used as a chassis so that everything a
     /// playable survivor needs (networking, state machines, ragdoll, footsteps, camera rig) is already
     /// wired up; the clone is then rescaled, restatted, retinted and given Deathwing's hitboxes.
-    /// Swap the model out by dropping a real mesh into <see cref="ReplaceModel"/>.
+    /// The real Deathwing model is then parented under it by <see cref="ReplaceModel"/>.
     /// </summary>
     internal static class DeathwingBody
     {
@@ -16,8 +17,14 @@ namespace Deathwing.Modules
         internal const string clawHitBoxGroupName = "DeathwingClaw";
         internal const string chargeHitBoxGroupName = "DeathwingCharge";
 
+        /// <summary>Name of the mouth locator the breath is fired from, added when the real model loads.</summary>
+        internal const string mouthChildName = "DeathwingMouth";
+
         internal static GameObject bodyPrefab;
         internal static GameObject displayPrefab;
+
+        /// <summary>True when the real model replaced the placeholder chassis mesh.</summary>
+        internal static bool usingRealModel { get; private set; }
 
         internal static void Init()
         {
@@ -51,7 +58,9 @@ namespace Deathwing.Modules
             body.baseNameToken = Tokens.bodyName;
             body.subtitleNameToken = Tokens.bodySubtitle;
             body.bodyColor = new Color(0.42f, 0.11f, 0.07f);
-            body.portraitIcon = DeathwingAssets.Load<Texture>("RoR2/Base/Commando/texCommandoIcon.png");
+            body.portraitIcon = DeathwingIcons.GetTexture(
+                DeathwingIcons.worldBreaker,
+                DeathwingAssets.Load<Texture>("RoR2/Base/Commando/texCommandoIcon.png"));
 
             body.autoCalculateLevelStats = false;
             body.baseMaxHealth = Tuning.baseHealth.Value;
@@ -148,8 +157,8 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Applies Deathwing's look to whatever model is present. With the stock chassis this means
-        /// tinting the borrowed mesh molten black-and-orange; point this at a custom mesh to use one.
+        /// Gives the body its look: the real Deathwing model when its art payload is available,
+        /// otherwise the borrowed chassis mesh tinted molten black-and-orange.
         /// </summary>
         private static void ReplaceModel(Transform modelTransform)
         {
@@ -159,12 +168,90 @@ namespace Deathwing.Modules
                 return;
             }
 
+            if (Tuning.useRealModel.Value && AttachRealModel(modelTransform))
+            {
+                usingRealModel = true;
+                return;
+            }
+
             // The skin controller is left intact: the chassis relies on it to assign its materials on
             // spawn, so removing it leaves the mesh unrendered. The tint is applied afterwards instead.
             if (!modelTransform.GetComponent<DeathwingTint>())
             {
                 modelTransform.gameObject.AddComponent<DeathwingTint>();
             }
+        }
+
+        /// <summary>
+        /// Parents the real model under the chassis' model transform rather than replacing it: the
+        /// chassis skeleton keeps carrying the hurtboxes, footsteps, ragdoll and aim rig a survivor
+        /// needs, and merely stops being drawn once <see cref="DeathwingCustomModel"/> hands rendering
+        /// over on spawn.
+        /// </summary>
+        private static bool AttachRealModel(Transform modelTransform)
+        {
+            GameObject model;
+            try
+            {
+                model = DeathwingModel.Build("mdlDeathwing");
+            }
+            catch (Exception exception)
+            {
+                // A half-built dragon must not cost the survivor its body: fall back to the chassis mesh.
+                Log.Error($"Could not build the real model, keeping the placeholder: {exception}");
+                model = null;
+            }
+
+            if (!model)
+            {
+                return false;
+            }
+
+            model.transform.SetParent(modelTransform, false);
+
+            if (!modelTransform.GetComponent<DeathwingCustomModel>())
+            {
+                modelTransform.gameObject.AddComponent<DeathwingCustomModel>();
+            }
+
+            AddMouthLocator(modelTransform, model.transform);
+            return true;
+        }
+
+        /// <summary>
+        /// Publishes the dragon's jaw as a named child so the breath can be sprayed from his mouth. It
+        /// gets its own name rather than overwriting the chassis' MuzzleCenter, which borrowed
+        /// components still fire from.
+        /// </summary>
+        private static void AddMouthLocator(Transform modelTransform, Transform model)
+        {
+            Transform jaw = DeathwingModel.FindMouth(model);
+            ChildLocator childLocator = modelTransform.GetComponent<ChildLocator>();
+            if (!jaw || !childLocator)
+            {
+                Log.Warning("No jaw bone or child locator; the breath will be emitted from the body's core.");
+                return;
+            }
+
+            GameObject mouth = new GameObject(mouthChildName);
+            mouth.transform.SetParent(jaw, false);
+            // Just past the teeth, in the jaw bone's own (source-rig) units.
+            mouth.transform.localPosition = new Vector3(0f, 0f, 40f);
+
+            ChildLocator.NameTransformPair[] pairs = childLocator.transformPairs;
+            int count = pairs != null ? pairs.Length : 0;
+            ChildLocator.NameTransformPair[] extended = new ChildLocator.NameTransformPair[count + 1];
+            for (int i = 0; i < count; i++)
+            {
+                extended[i] = pairs[i];
+            }
+
+            extended[count] = new ChildLocator.NameTransformPair
+            {
+                name = mouthChildName,
+                transform = mouth.transform
+            };
+            childLocator.transformPairs = extended;
         }
 
         /// <summary>
@@ -222,12 +309,13 @@ namespace Deathwing.Modules
             foreach (MonoBehaviour behaviour in display.GetComponentsInChildren<MonoBehaviour>(true))
             {
                 if (behaviour is CharacterModel || behaviour is ModelSkinController
-                    || behaviour is ChildLocator || behaviour is DeathwingTint)
+                    || behaviour is ChildLocator || behaviour is DeathwingTint
+                    || behaviour is DeathwingCustomModel || behaviour is DeathwingAnimator)
                 {
                     continue;
                 }
 
-                Object.Destroy(behaviour);
+                UnityEngine.Object.Destroy(behaviour);
             }
 
             return display;

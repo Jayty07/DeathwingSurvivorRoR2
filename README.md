@@ -5,8 +5,8 @@ hits like a siege engine, and every one of his skills leaves fire or broken rock
 take to the air and come back down as a bomb.
 
 Built as a BepInEx plugin against R2API, so it drops into an existing modded install with no Unity
-project required. A Unity/ThunderKit project is only needed if you want to replace the placeholder
-art (see [Replacing the model](#replacing-the-model)).
+project required — including the model, which is built from converted data at runtime rather than an
+asset bundle (see [The model](#the-model)).
 
 ## Kit
 
@@ -73,7 +73,11 @@ src/Deathwing/
     Tuning.cs                 every gameplay number, bound to the BepInEx config
     Tokens.cs                 language tokens and skill descriptions
     DeathwingAssets.cs        fault-tolerant Addressables lookups + material tinting
-    DeathwingTint.cs          recolours the model after the skin system has applied its materials
+    DeathwingModel.cs         decodes the DWM1 art payload into meshes, materials and clips
+    DeathwingAnimator.cs      clip names and playback for the real model
+    DeathwingCustomModel.cs   hands rendering from the chassis mesh to the real one on spawn
+    DeathwingIcons.cs         ability icons, falling back to the chassis' per slot
+    DeathwingTint.cs          recolours the placeholder model once the skin system has applied its materials
     Buffs.cs                  Elementium Plating (the +200 armor buff)
     Projectiles.cs            molten boulder and lava pool, cloned from vanilla projectiles
     DeathwingBody.cs          the body prefab: stats, capsule, camera, hitboxes, materials
@@ -111,20 +115,22 @@ with a warning instead of throwing. Skills null-check what they borrow — for e
 falls back to a point blast at the aim position if the projectile prefab could not be cloned, and the
 lava pools are simply skipped. A game update that renames an address costs visuals, not the survivor.
 
-## Replacing the model
+## The model
 
-The placeholder art is a tinted Commando. **[docs/CUSTOM_MODEL.md](docs/CUSTOM_MODEL.md)** is the full
-walkthrough: exporting the model, the prefab hierarchy and `ChildLocator` names the mod reads, building
-the bundle, and mapping animation clips to each skill. In short:
+The real model is not an asset bundle. `tools/convert.py` turns a rigged `.mdx` model plus its `.dds`
+textures into a single `deathwing.dwm` payload — skeleton, skinned geosets, DXT texture blocks and
+animation clips — and `Modules/DeathwingModel.cs` builds the skinned meshes, material and (legacy)
+animation clips from it while the game runs. That removes the Unity editor, its version pinning and its
+login from the pipeline entirely, and keeps the install a single DLL.
 
-1. Build an AssetBundle containing the rigged model, with the Unity version the game was built with
-   (via ThunderKit or a plain Unity project).
-2. Load the bundle in `DeathwingAssets` and set the mesh/materials in `DeathwingBody.ReplaceModel`,
-   which is the single place that touches `CharacterModel.baseRendererInfos`.
-3. Adjust `Tuning.modelScale` plus the hitbox offsets in `DeathwingBody.AddHitBoxes` to the new mesh.
+The payload is read from beside the plugin first and from an embedded copy second, and the survivor
+falls back to the tinted Commando mesh when neither exists — so a build with no art still runs.
+**[docs/CUSTOM_MODEL.md](docs/CUSTOM_MODEL.md)** covers conversion, the clip-to-skill mapping, the
+config dials, and the asset-bundle route if you would rather author the model in Unity.
 
-No Blizzard assets are included in this repository. The World of Warcraft model, textures and sounds
-are Blizzard's intellectual property — supply your own art if you intend to distribute a build.
+No Blizzard assets are included in this repository: the model, textures, icons and sounds are
+Blizzard's intellectual property, and `art/` is gitignored. Supply your own art if you intend to
+distribute a build.
 
 Sound effects reuse vanilla Wwise event names (see `Modules/Sounds.cs`); a name that no longer exists
 is silently ignored by the game, so they are safe to swap for a custom bank.

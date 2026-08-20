@@ -23,6 +23,7 @@ namespace Deathwing.SkillStates
 
         private bool wantsToDive;
         private bool wantsToLand;
+        private bool beatingWings;
         private float maxFlightDuration;
 
         public override void OnEnter()
@@ -47,7 +48,7 @@ namespace Deathwing.SkillStates
             characterBody.AddTimedBuff(Buffs.elementiumPlating, takeoffDuration);
             characterBody.SetAimTimer(maxFlightDuration);
             Util.PlaySound(Sounds.wingFlap, gameObject);
-            PlayCrossfade("Body", "Jump", 0.1f);
+            PlayDragonAnimation(DeathwingClips.flightStart, takeoffDuration, "Body", "Jump");
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 1.4f * characterScale, gameObject);
         }
 
@@ -58,6 +59,14 @@ namespace Deathwing.SkillStates
             if (characterMotor)
             {
                 characterMotor.velocity = CalculateFlightVelocity();
+            }
+
+            if (dragon && !beatingWings && fixedAge >= takeoffDuration)
+            {
+                // Wings held out and gliding for as long as the flight lasts. Animation runs on every
+                // client, so it is chosen before the authority-only input handling below.
+                beatingWings = true;
+                dragon.PlayHeld(DeathwingClips.flightLoop, 0.2f);
             }
 
             if (!isAuthority)
@@ -156,6 +165,13 @@ namespace Deathwing.SkillStates
             if (characterMotor)
             {
                 characterMotor.useGravity = true;
+            }
+
+            // A dive has its own animation to play, so the landing beat is only for flights that end
+            // with him settling back down.
+            if (dragon)
+            {
+                dragon.Release(wantsToDive ? null : DeathwingClips.flightLand, 0.5f);
             }
 
             // Only the unused portion of the flight budget is refunded, so short hops come back fast.

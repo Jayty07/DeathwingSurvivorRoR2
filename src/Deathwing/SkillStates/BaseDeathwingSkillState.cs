@@ -11,6 +11,49 @@ namespace Deathwing.SkillStates
         /// <summary>Deathwing is a large character, so effects and hitboxes are scaled with him.</summary>
         protected float characterScale => Tuning.modelScale?.Value ?? 1f;
 
+        private DeathwingAnimator dragonAnimator;
+        private bool dragonAnimatorResolved;
+
+        /// <summary>
+        /// The real model's animation driver, if he is wearing it. Resolved once and cached: skills ask
+        /// for it every activation, and it never moves for the life of the body.
+        /// </summary>
+        protected DeathwingAnimator dragon
+        {
+            get
+            {
+                if (!dragonAnimatorResolved)
+                {
+                    dragonAnimatorResolved = true;
+                    Transform model = modelLocator ? modelLocator.modelTransform : null;
+                    dragonAnimator = model ? model.GetComponentInChildren<DeathwingAnimator>() : null;
+                }
+
+                return dragonAnimator;
+            }
+        }
+
+        /// <summary>
+        /// Plays one of the real model's clips, falling back to the chassis animator's own state when
+        /// the model is not loaded, so both the real dragon and the placeholder mesh animate.
+        /// </summary>
+        protected void PlayDragonAnimation(string clip, float duration, string layer, string state, string playbackRateParam = null)
+        {
+            if (dragon)
+            {
+                dragon.PlayOnce(clip, duration);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(playbackRateParam))
+            {
+                PlayCrossfade(layer, state, 0.1f);
+                return;
+            }
+
+            PlayCrossfade(layer, state, playbackRateParam, duration, 0.1f);
+        }
+
         protected BlastAttack CreateFireBlast(Vector3 position, float radius, float damageCoefficient, float force = 0f)
         {
             return new BlastAttack

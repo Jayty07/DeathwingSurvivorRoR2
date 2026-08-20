@@ -14,6 +14,9 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> baseAttackSpeed;
         internal static ConfigEntry<float> modelScale;
         internal static ConfigEntry<bool> tintModel;
+        internal static ConfigEntry<bool> useRealModel;
+        internal static ConfigEntry<float> realModelScale;
+        internal static ConfigEntry<float> modelEmission;
 
         internal static ConfigEntry<float> moltenBloodMaxArmor;
         internal static ConfigEntry<float> moltenBloodMaxDamageMult;
@@ -41,7 +44,13 @@ namespace Deathwing.Modules
             baseDamage = config.Bind("Stats", "Base Damage", 16f, "Vanilla survivors deal 12 base damage.");
             baseAttackSpeed = config.Bind("Stats", "Base Attack Speed", 0.8f, "Multiplier on all skill durations. Below 1 means slower, heavier swings.");
             modelScale = config.Bind("Stats", "Model Scale", 1.9f, "Uniform scale applied to the model, hitboxes and character capsule.");
-            tintModel = config.Bind("Stats", "Tint Model", true, "Recolour the model molten black-and-orange. Disable to see the untouched chassis materials.");
+            tintModel = config.Bind("Stats", "Tint Model", true, "Recolour the placeholder chassis model molten black-and-orange. Ignored when the real model is in use.");
+            useRealModel = config.Bind("Model", "Use Real Model", true,
+                "Draw the real Deathwing model when its art payload is available. Disable to fall back to the placeholder chassis mesh.");
+            realModelScale = config.Bind("Model", "Real Model Scale", 0.006f,
+                "Scale of the real model inside the character, before Model Scale is applied. He stands about 325 source units tall, so this puts him near 3.7m once Model Scale is applied.");
+            modelEmission = config.Bind("Model", "Real Model Emission", 2.2f,
+                "How hot the model's glowing cracks and eyes burn.");
 
             moltenBloodMaxArmor = config.Bind("Passive", "Molten Blood Max Armor", 60f, "Bonus armor at 0% health, scaled linearly by missing health.");
             moltenBloodMaxDamageMult = config.Bind("Passive", "Molten Blood Max Damage Bonus", 0.4f, "Bonus damage multiplier at 0% health, scaled linearly by missing health.");

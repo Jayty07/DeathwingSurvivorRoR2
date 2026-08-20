@@ -58,7 +58,7 @@ namespace Deathwing.SkillStates
             characterBody.AddTimedBuff(Buffs.elementiumPlating, duration + 0.5f);
             Util.PlaySound(Sounds.chargeStart, gameObject);
             ShakeCamera(transform.position, 3f, 0.3f, 30f);
-            PlayCrossfade("Body", "Sprint", 0.1f);
+            PlayDragonAnimation(DeathwingClips.charge, duration, "Body", "Sprint");
         }
 
         public override void FixedUpdate()

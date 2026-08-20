@@ -73,15 +73,18 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(duration + 0.5f);
             Util.PlaySound(IsFinisher ? Sounds.clawSlam : Sounds.clawSwing, gameObject);
 
-            // The chassis has no claw animations, so the combo is telegraphed through the gestures it
-            // does have: the swipes reuse the firing gesture, the slam the heavier throw.
+            // The real model has a claw swipe per step of the combo. Without it the chassis has no claw
+            // animations at all, so the combo is telegraphed through the gestures it does have: the
+            // swipes reuse the firing gesture, the slam the heavier throw.
             if (IsFinisher)
             {
-                PlayCrossfade("Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate", duration, 0.1f);
+                PlayDragonAnimation(DeathwingClips.clawC, duration,
+                    "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
             }
             else
             {
-                PlayCrossfade("Gesture, Override", "FireGun", "FireGun.playbackRate", duration, 0.1f);
+                PlayDragonAnimation(step % comboLength == 0 ? DeathwingClips.clawA : DeathwingClips.clawB, duration,
+                    "Gesture, Override", "FireGun", "FireGun.playbackRate");
             }
         }
 
