@@ -18,6 +18,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelScale;
         internal static ConfigEntry<float> modelEmission;
         internal static ConfigEntry<bool> registerModel;
+        internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
@@ -52,7 +53,10 @@ namespace Deathwing.Modules
             useRealModel = config.Bind("Model", "Use Real Model", true,
                 "Draw the real Deathwing model when its art payload is available. Disable to fall back to the placeholder chassis mesh.");
             realModelScale = config.Bind("Model", "Real Model Scale", 0.0095f,
-                "Scale of the real model inside the character, before Model Scale is applied. His head sits about 220 source units up, so this puts it near 4m once Model Scale is applied.");
+                "Scale the real model is built at. In game it is resized to Real Model Height, so this only affects the character select model.");
+            realModelHeight = config.Bind("Model", "Real Model Height", 7f,
+                "Metres from his claws to the top of his standing pose. He is measured after spawning and "
+                + "scaled to match, so this is the one dial for his size. 0 leaves him at Real Model Scale.");
             modelEmission = config.Bind("Model", "Real Model Emission", 2.2f,
                 "How hot the model's glowing cracks and eyes burn.");
             registerModel = config.Bind("Model", "Register Model With Character Model", false,

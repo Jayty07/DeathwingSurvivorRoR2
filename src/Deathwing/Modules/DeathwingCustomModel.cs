@@ -30,7 +30,7 @@ namespace Deathwing.Modules
 
         private CharacterModel characterModel;
         private float age;
-        private bool aligned;
+        private bool fitted;
 
         private void OnEnable()
         {
@@ -49,7 +49,7 @@ namespace Deathwing.Modules
                 Apply();
             }
 
-            Align();
+            Fit();
 
             if (age > assertDuration)
             {
@@ -126,43 +126,80 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Stands the dragon on the ground. The chassis' model base is offset for the borrowed mesh,
-        /// whose origin is at its hips rather than its feet, so the dragon - whose origin is between
-        /// his claws - is planted below the floor by that offset. Rather than guess at it, the model is
-        /// raised by however far its lowest drawn point sits under the capsule's base.
+        /// Sizes the dragon to the height asked for and stands his claws on the ground, both measured
+        /// from the model as it is actually posed rather than from numbers authored for the rig.
+        ///
+        /// The measurement has to come from a baked snapshot of the skinning: a skinned renderer's
+        /// bounds are the ones the model was built with, deliberately widened so his wings and tail
+        /// cannot cull him, so they say nothing about where his feet are. Doing it here rather than in
+        /// the config also makes it immune to a stale scale sitting in an existing config file.
         /// </summary>
-        private void Align()
+        private void Fit()
         {
-            if (aligned || ours.Count == 0 || age < 0.2f)
+            // Long enough for the animator to have posed him: measuring the bind pose would size him
+            // by his outstretched wings instead of his standing height.
+            if (fitted || ours.Count == 0 || age < 0.4f)
             {
                 return;
             }
 
-            CharacterBody body = GetComponentInParent<CharacterBody>();
+            // The body is asked for through the character model, which the game points at its owner on
+            // spawn: the model is not always a child of the body it belongs to.
+            CharacterBody body = characterModel && characterModel.body
+                ? characterModel.body
+                : GetComponentInParent<CharacterBody>();
+
+            // The menu's display clone is deliberately left alone: it is sized and framed by the
+            // character select screen itself, and there is no ground under it to stand on.
             Transform root = ours[0].transform.parent;
             if (!body || !root)
             {
                 return;
             }
 
+            fitted = true;
+
             float lowest = float.MaxValue;
+            float highest = float.MinValue;
+            Mesh baked = new Mesh();
             foreach (SkinnedMeshRenderer renderer in ours)
             {
-                if (renderer.sharedMesh)
+                if (!renderer.sharedMesh)
                 {
-                    lowest = Mathf.Min(lowest, renderer.bounds.min.y);
+                    continue;
                 }
+
+                renderer.BakeMesh(baked);
+                Bounds bounds = baked.bounds;
+                lowest = Mathf.Min(lowest, bounds.min.y);
+                highest = Mathf.Max(highest, bounds.max.y);
             }
 
-            if (lowest == float.MaxValue)
+            Destroy(baked);
+
+            if (highest <= lowest)
             {
+                Log.Warning("Could not measure the model; leaving its size and height alone.");
                 return;
             }
 
-            aligned = true;
-            float lift = body.footPosition.y - lowest + Tuning.realModelLift.Value;
+            float worldScale = root.lossyScale.y;
+            float height = (highest - lowest) * worldScale;
+            if (height > 0.01f && Tuning.realModelHeight.Value > 0f)
+            {
+                float factor = Tuning.realModelHeight.Value / height;
+                root.localScale *= factor;
+                worldScale *= factor;
+                Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured, "
+                    + $"{Tuning.realModelHeight.Value:0.##}m asked for.");
+            }
+
+            float ground = body.footPosition.y;
+            float feet = root.position.y + lowest * worldScale;
+            float lift = ground - feet + Tuning.realModelLift.Value;
             root.position += Vector3.up * lift;
-            Log.Info($"Raised the model {lift:0.###}m to stand its claws on the ground.");
+            Log.Info($"Raised the model {lift:0.###}m to stand its claws on the ground "
+                + $"(feet were at {feet:0.##}, ground at {ground:0.##}).");
         }
 
         /// <summary>True once the handover has been made and nothing has undone it.</summary>
