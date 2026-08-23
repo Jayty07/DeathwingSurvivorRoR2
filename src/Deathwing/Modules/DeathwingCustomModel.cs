@@ -21,6 +21,10 @@ namespace Deathwing.Modules
         /// <summary>How long to keep re-claiming the renderer list after the body spawns.</summary>
         private const float assertDuration = 3f;
 
+        /// <summary>Heights a measurement of a drawn character can sensibly come out as, in metres.</summary>
+        private const float minPlausibleHeight = 0.3f;
+        private const float maxPlausibleHeight = 60f;
+
         private static bool reported;
 
         private readonly List<SkinnedMeshRenderer> ours = new List<SkinnedMeshRenderer>();
@@ -183,15 +187,31 @@ namespace Deathwing.Modules
                 return;
             }
 
-            float worldScale = root.lossyScale.y;
-            float height = (highest - lowest) * worldScale;
-            if (height > 0.01f && Tuning.realModelHeight.Value > 0f)
+            // Whether a baked snapshot comes out in the renderer's own units or already in metres
+            // differs between engine versions, and being wrong either way is a factor of hundreds. The
+            // reading that lands on a plausible height for a dragon is the one taken.
+            float measured = highest - lowest;
+            float worldScale = 1f;
+            if (measured < minPlausibleHeight || measured > maxPlausibleHeight)
+            {
+                worldScale = root.lossyScale.y;
+                measured *= worldScale;
+            }
+
+            float height = measured;
+            if (height >= minPlausibleHeight && height <= maxPlausibleHeight
+                && Tuning.realModelHeight.Value > 0f)
             {
                 float factor = Tuning.realModelHeight.Value / height;
                 root.localScale *= factor;
                 worldScale *= factor;
                 Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured, "
                     + $"{Tuning.realModelHeight.Value:0.##}m asked for.");
+            }
+            else
+            {
+                Log.Warning($"Measured the model at an implausible {height:0.###}m; leaving its size "
+                    + "alone and only standing it on the ground.");
             }
 
             float ground = body.footPosition.y;
