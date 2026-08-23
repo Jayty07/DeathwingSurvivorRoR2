@@ -42,7 +42,7 @@ namespace Deathwing.SkillStates
         private bool mouthSearched;
         private GameObject jet;
         private bool jetSpawned;
-        private AudioSource voice;
+        private DeathwingVoice.Voice voice;
 
         public override void OnEnter()
         {

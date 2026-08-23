@@ -21,9 +21,12 @@ namespace Deathwing.Modules
         /// <summary>How long to keep re-claiming the renderer list after the body spawns.</summary>
         private const float assertDuration = 3f;
 
-        /// <summary>Heights a measurement of a drawn character can sensibly come out as, in metres.</summary>
-        private const float minPlausibleHeight = 0.3f;
-        private const float maxPlausibleHeight = 60f;
+        /// <summary>
+        /// How much of his drawn height his bones span. Bones sit inside the geometry, so the skeleton
+        /// stops short of his claws and the crown of his head; the shortfall is allowed for here so
+        /// that the configured height means his silhouette rather than his rig.
+        /// </summary>
+        private const float boneSpanShare = 0.85f;
 
         private static bool reported;
 
@@ -130,13 +133,45 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Sizes the dragon to the height asked for and stands his claws on the ground, both measured
-        /// from the model as it is actually posed rather than from numbers authored for the rig.
-        ///
-        /// The measurement has to come from a baked snapshot of the skinning: a skinned renderer's
-        /// bounds are the ones the model was built with, deliberately widened so his wings and tail
-        /// cannot cull him, so they say nothing about where his feet are. Doing it here rather than in
-        /// the config also makes it immune to a stale scale sitting in an existing config file.
+        /// The lowest and highest point of his posed skeleton, in world space. The skeleton is used
+        /// rather than the mesh because a bone is a real transform: its world position needs no
+        /// assumption about whose units a measurement came back in, which is what made two earlier
+        /// attempts at this size him wrongly by a factor of hundreds. His renderer bounds are no use
+        /// either - they are deliberately widened so his wings and tail cannot cull him.
+        /// </summary>
+        private bool Measure(out float lowest, out float highest)
+        {
+            lowest = float.MaxValue;
+            highest = float.MinValue;
+
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                Transform[] bones = renderer.bones;
+                if (bones == null)
+                {
+                    continue;
+                }
+
+                foreach (Transform bone in bones)
+                {
+                    if (!bone)
+                    {
+                        continue;
+                    }
+
+                    float y = bone.position.y;
+                    lowest = Mathf.Min(lowest, y);
+                    highest = Mathf.Max(highest, y);
+                }
+            }
+
+            return highest > lowest;
+        }
+
+        /// <summary>
+        /// Sizes the dragon to the height asked for and stands him on the ground, both measured from
+        /// the model as it is actually posed rather than from numbers authored for the rig. Doing it
+        /// here rather than in the config also makes it immune to a stale scale in an existing config.
         /// </summary>
         private void Fit()
         {
@@ -163,63 +198,34 @@ namespace Deathwing.Modules
 
             fitted = true;
 
-            float lowest = float.MaxValue;
-            float highest = float.MinValue;
-            Mesh baked = new Mesh();
-            foreach (SkinnedMeshRenderer renderer in ours)
-            {
-                if (!renderer.sharedMesh)
-                {
-                    continue;
-                }
-
-                renderer.BakeMesh(baked);
-                Bounds bounds = baked.bounds;
-                lowest = Mathf.Min(lowest, bounds.min.y);
-                highest = Mathf.Max(highest, bounds.max.y);
-            }
-
-            Destroy(baked);
-
-            if (highest <= lowest)
+            if (!Measure(out float lowest, out float highest))
             {
                 Log.Warning("Could not measure the model; leaving its size and height alone.");
                 return;
             }
 
-            // Whether a baked snapshot comes out in the renderer's own units or already in metres
-            // differs between engine versions, and being wrong either way is a factor of hundreds. The
-            // reading that lands on a plausible height for a dragon is the one taken.
-            float measured = highest - lowest;
-            float worldScale = 1f;
-            if (measured < minPlausibleHeight || measured > maxPlausibleHeight)
+            float height = (highest - lowest) / boneSpanShare;
+            if (Tuning.realModelHeight.Value > 0f && height > 0.001f)
             {
-                worldScale = root.lossyScale.y;
-                measured *= worldScale;
-            }
-
-            float height = measured;
-            if (height >= minPlausibleHeight && height <= maxPlausibleHeight
-                && Tuning.realModelHeight.Value > 0f)
-            {
-                float factor = Tuning.realModelHeight.Value / height;
+                // Clamped because being wrong about a scale is the difference between a dragon and a
+                // map-sized one, and a refusal to resize is far easier to see and report than that.
+                float factor = Mathf.Clamp(Tuning.realModelHeight.Value / height, 0.02f, 50f);
                 root.localScale *= factor;
-                worldScale *= factor;
-                Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured, "
-                    + $"{Tuning.realModelHeight.Value:0.##}m asked for.");
-            }
-            else
-            {
-                Log.Warning($"Measured the model at an implausible {height:0.###}m; leaving its size "
-                    + "alone and only standing it on the ground.");
+                Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured across its "
+                    + $"skeleton, {Tuning.realModelHeight.Value:0.##}m asked for.");
+
+                // The bones have moved with the scale, so where his feet are has to be read again.
+                if (!Measure(out lowest, out highest))
+                {
+                    return;
+                }
             }
 
             float ground = body.footPosition.y;
-            float feet = root.position.y + lowest * worldScale;
-            float lift = ground - feet + Tuning.realModelLift.Value;
+            float lift = ground - lowest + Tuning.realModelLift.Value;
             root.position += Vector3.up * lift;
-            Log.Info($"Raised the model {lift:0.###}m to stand its claws on the ground "
-                + $"(feet were at {feet:0.##}, ground at {ground:0.##}).");
+            Log.Info($"Raised the model {lift:0.###}m to stand it on the ground (its lowest bone was "
+                + $"at {lowest:0.##}, ground at {ground:0.##}, top at {highest:0.##}).");
         }
 
         /// <summary>True once the handover has been made and nothing has undone it.</summary>

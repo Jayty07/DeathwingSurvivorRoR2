@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace Deathwing.Modules
@@ -8,8 +10,12 @@ namespace Deathwing.Modules
     /// <summary>
     /// Deathwing's own voice, played over the borrowed Wwise events rather than instead of them: the
     /// vanilla sounds carry the impact, these carry the dragon. The clips ship in the DLL as mono
-    /// 16 bit PCM and are decoded into <see cref="AudioClip"/>s the first time they are asked for,
-    /// which is the only route to a custom sound without an authored Wwise bank.
+    /// 16 bit PCM.
+    ///
+    /// Two routes are kept. Unity's own audio is preferred, since it gives real 3D sound for free -
+    /// but this game disables Unity audio entirely (it mixes through Wwise, and reports an output rate
+    /// of 0Hz), which makes every <see cref="AudioSource"/> silent. When that is the case the samples
+    /// go to the OS audio device instead, mixed by hand in <see cref="DeathwingVoiceMixer"/>.
     /// </summary>
     internal static class DeathwingVoice
     {
@@ -28,91 +34,25 @@ namespace Deathwing.Modules
             { flameBreath, 3 }
         };
 
-        private static readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
+        private static readonly Dictionary<string, Sound> sounds = new Dictionary<string, Sound>();
 
         private static bool described;
-        private static bool warned;
+        private static bool unityAudio;
 
-        /// <summary>
-        /// Turns decoded samples into a clip. The straightforward route - allocate the clip and fill
-        /// it with <see cref="AudioClip.SetData(float[], int)"/> - is refused by this game's audio
-        /// system ("AudioClip contains no data"), so a clip that streams from the decoded samples
-        /// through a read callback is used instead: it never needs a filled buffer.
-        /// </summary>
-        private static AudioClip Build(string name, float[] pcm, int lengthSamples, int channels, int frequency)
+        /// <summary>A sound in flight, and the handle callers pass back to <see cref="Stop"/>.</summary>
+        internal class Voice
         {
-            AudioClip clip = AudioClip.Create(name, lengthSamples, channels, frequency, false);
-            if (clip && clip.SetData(pcm, 0))
-            {
-                clip.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                return clip;
-            }
-
-            if (clip)
-            {
-                UnityEngine.Object.Destroy(clip);
-            }
-
-            int cursor = 0;
-            AudioClip streamed = AudioClip.Create(name, lengthSamples, channels, frequency, true,
-                data =>
-                {
-                    int count = Mathf.Min(data.Length, pcm.Length - cursor);
-                    for (int i = 0; i < count; i++)
-                    {
-                        data[i] = pcm[cursor + i];
-                    }
-
-                    for (int i = count; i < data.Length; i++)
-                    {
-                        data[i] = 0f;
-                    }
-
-                    cursor += count;
-                },
-                position => cursor = Mathf.Clamp(position * channels, 0, pcm.Length));
-
-            if (streamed)
-            {
-                streamed.hideFlags = HideFlags.DontUnloadUnusedAsset;
-            }
-
-            return streamed;
-        }
-
-        /// <summary>
-        /// What the engine's audio system will actually do with a clip, logged once. A custom sound is
-        /// silent for several reasons that look identical in game - no Unity listener in a Wwise title,
-        /// a refused buffer, a disabled audio device - so the state is written down rather than guessed.
-        /// </summary>
-        private static void Describe()
-        {
-            if (described)
-            {
-                return;
-            }
-
-            described = true;
-            AudioListener listener = UnityEngine.Object.FindObjectOfType<AudioListener>();
-            Log.Info($"Voice audio: output {AudioSettings.outputSampleRate}Hz {AudioSettings.speakerMode}, "
-                + $"driver {AudioSettings.driverCapabilities}, listener "
-                + (listener ? "on '" + listener.gameObject.name + "'" : "missing"));
-
-            if (listener)
-            {
-                return;
-            }
-
-            // The game mixes through Wwise and so carries no Unity listener; without one, a Unity
-            // AudioSource is silent no matter how it is configured.
-            Camera camera = Camera.main;
-            GameObject host = camera ? camera.gameObject : new GameObject("DeathwingAudioListener");
-            host.AddComponent<AudioListener>();
-            Log.Info($"Added a Unity audio listener to '{host.name}' so custom voices can be heard.");
+            internal AudioSource source;
+            internal WaveVoice wave;
+            internal Transform at;
+            internal float volume;
+            internal float maxDistance;
+            internal float started;
+            internal bool loop;
         }
 
         /// <summary>Plays one clip - or one at random from a numbered family - on a body.</summary>
-        internal static AudioSource Play(string name, GameObject at, float volume = 1f,
+        internal static Voice Play(string name, GameObject at, float volume = 1f,
             bool loop = false, float rolloffDistance = 60f)
         {
             if (!at || !Tuning.realModelVoice.Value)
@@ -122,7 +62,39 @@ namespace Deathwing.Modules
 
             Describe();
 
-            AudioClip clip = Resolve(name);
+            Sound sound = Resolve(name);
+            if (sound == null)
+            {
+                return null;
+            }
+
+            float level = Mathf.Clamp01(volume * Tuning.realModelVoiceVolume.Value);
+            return unityAudio
+                ? PlayThroughUnity(sound, at, level, loop, rolloffDistance)
+                : PlayThroughDevice(sound, at, level, loop, rolloffDistance);
+        }
+
+        /// <summary>Stops and cleans up a looping voice returned by <see cref="Play"/>.</summary>
+        internal static void Stop(Voice voice)
+        {
+            if (voice == null)
+            {
+                return;
+            }
+
+            if (voice.source)
+            {
+                voice.source.Stop();
+                UnityEngine.Object.Destroy(voice.source.gameObject);
+            }
+
+            DeathwingVoiceMixer.Remove(voice);
+        }
+
+        private static Voice PlayThroughUnity(Sound sound, GameObject at, float level, bool loop,
+            float rolloffDistance)
+        {
+            AudioClip clip = sound.Clip();
             if (!clip)
             {
                 return null;
@@ -134,63 +106,103 @@ namespace Deathwing.Modules
             AudioSource source = speaker.AddComponent<AudioSource>();
             source.clip = clip;
             source.loop = loop;
-            source.volume = Mathf.Clamp01(volume * Tuning.realModelVoiceVolume.Value);
+            source.volume = level;
             source.spatialBlend = 1f;
             source.rolloffMode = AudioRolloffMode.Linear;
             source.minDistance = 8f;
             source.maxDistance = rolloffDistance;
             source.dopplerLevel = 0f;
             source.Play();
-            if (!source.isPlaying && !warned)
-            {
-                warned = true;
-                Log.Warning($"'{clip.name}' would not play: the engine's Unity audio system is refusing "
-                    + "sources, so custom voices need a Wwise bank instead.");
-            }
 
             if (!loop)
             {
                 UnityEngine.Object.Destroy(speaker, clip.length + 0.2f);
             }
 
-            return source;
+            return new Voice { source = source, at = speaker.transform, loop = loop };
         }
 
-        /// <summary>Stops and cleans up a looping voice returned by <see cref="Play"/>.</summary>
-        internal static void Stop(AudioSource source)
+        private static Voice PlayThroughDevice(Sound sound, GameObject at, float level, bool loop,
+            float rolloffDistance)
         {
-            if (!source)
+            WaveVoice wave = WaveVoice.Play(sound.pcm, sound.channels, sound.rate, loop);
+            if (wave == null)
+            {
+                Log.Warning($"The OS refused to play '{sound.name}'; custom voices will be silent.");
+                return null;
+            }
+
+            Voice voice = new Voice
+            {
+                wave = wave,
+                at = at.transform,
+                volume = level,
+                maxDistance = rolloffDistance,
+                started = Time.time,
+                loop = loop
+            };
+
+            DeathwingVoiceMixer.Add(voice);
+            return voice;
+        }
+
+        /// <summary>
+        /// Works out - once - whether Unity's audio system is alive, and says so in the log. A custom
+        /// sound goes missing for several reasons that look identical in game, so the state is written
+        /// down rather than guessed at.
+        /// </summary>
+        private static void Describe()
+        {
+            if (described)
             {
                 return;
             }
 
-            source.Stop();
-            UnityEngine.Object.Destroy(source.gameObject);
+            described = true;
+            unityAudio = AudioSettings.outputSampleRate > 0;
+            Log.Info($"Voice audio: Unity output {AudioSettings.outputSampleRate}Hz "
+                + $"{AudioSettings.speakerMode}, playing through "
+                + (unityAudio ? "Unity" : "the OS audio device"));
+
+            if (!unityAudio)
+            {
+                return;
+            }
+
+            if (!UnityEngine.Object.FindObjectOfType<AudioListener>())
+            {
+                // Without a listener a Unity source is silent however it is configured, and a game
+                // that mixes through Wwise has no reason to carry one.
+                Camera camera = Camera.main;
+                GameObject host = camera ? camera.gameObject : new GameObject("DeathwingAudioListener");
+                host.AddComponent<AudioListener>();
+                Log.Info($"Added a Unity audio listener to '{host.name}'.");
+            }
         }
 
-        private static AudioClip Resolve(string name)
+        private static Sound Resolve(string name)
         {
             if (variants.TryGetValue(name, out int count))
             {
-                name += Random.Range(1, count + 1);
+                name += UnityEngine.Random.Range(1, count + 1);
             }
 
-            if (clips.TryGetValue(name, out AudioClip cached))
+            if (sounds.TryGetValue(name, out Sound cached))
             {
                 return cached;
             }
 
-            AudioClip clip = Decode(name);
-            clips[name] = clip;
-            if (!clip)
+            Sound sound = Decode(name);
+            sounds[name] = sound;
+            if (sound == null)
             {
                 Log.Warning($"Voice clip '{name}' is not in the DLL; that sound will be silent.");
             }
 
-            return clip;
+            return sound;
         }
 
-        private static AudioClip Decode(string name)
+        private static Sound Decode(string name)
         {
             Assembly assembly = Assembly.GetExecutingAssembly();
             using (Stream stream = assembly.GetManifestResourceStream("Deathwing.Sounds." + name + ".wav"))
@@ -200,9 +212,11 @@ namespace Deathwing.Modules
                     return null;
                 }
 
-                byte[] wav = new byte[stream.Length];
-                stream.Read(wav, 0, wav.Length);
-                return Decode(name, wav);
+                using (MemoryStream copy = new MemoryStream())
+                {
+                    stream.CopyTo(copy);
+                    return Decode(name, copy.ToArray());
+                }
             }
         }
 
@@ -210,16 +224,16 @@ namespace Deathwing.Modules
         /// Reads a mono or stereo 16 bit PCM RIFF file. Chunks are walked rather than assumed: the
         /// pack's files carry fact and PEAK chunks ahead of the samples.
         /// </summary>
-        private static AudioClip Decode(string name, byte[] wav)
+        private static Sound Decode(string name, byte[] wav)
         {
             int channels = 1;
-            int frequency = 22050;
+            int rate = 22050;
             int offset = 12;
 
             while (offset + 8 <= wav.Length)
             {
-                string id = System.Text.Encoding.ASCII.GetString(wav, offset, 4);
-                int size = System.BitConverter.ToInt32(wav, offset + 4);
+                string id = Encoding.ASCII.GetString(wav, offset, 4);
+                int size = BitConverter.ToInt32(wav, offset + 4);
                 int body = offset + 8;
                 if (size < 0 || body + size > wav.Length)
                 {
@@ -228,25 +242,56 @@ namespace Deathwing.Modules
 
                 if (id == "fmt ")
                 {
-                    channels = System.BitConverter.ToInt16(wav, body + 2);
-                    frequency = System.BitConverter.ToInt32(wav, body + 4);
+                    channels = BitConverter.ToInt16(wav, body + 2);
+                    rate = BitConverter.ToInt32(wav, body + 4);
                 }
                 else if (id == "data")
                 {
-                    int samples = size / 2;
-                    float[] pcm = new float[samples];
-                    for (int i = 0; i < samples; i++)
-                    {
-                        pcm[i] = System.BitConverter.ToInt16(wav, body + i * 2) / 32768f;
-                    }
-
-                    return Build(name, pcm, samples / channels, channels, frequency);
+                    byte[] pcm = new byte[size];
+                    Array.Copy(wav, body, pcm, 0, size);
+                    return new Sound { name = name, pcm = pcm, channels = channels, rate = rate };
                 }
 
                 offset = body + size + (size & 1);
             }
 
             return null;
+        }
+
+        /// <summary>Decoded samples, kept as bytes so either playback route can use them.</summary>
+        private class Sound
+        {
+            internal string name;
+            internal byte[] pcm;
+            internal int channels;
+            internal int rate;
+
+            private AudioClip clip;
+
+            /// <summary>The samples as a Unity clip, built on first use.</summary>
+            internal AudioClip Clip()
+            {
+                if (clip)
+                {
+                    return clip;
+                }
+
+                int count = pcm.Length / 2;
+                float[] data = new float[count];
+                for (int i = 0; i < count; i++)
+                {
+                    data[i] = BitConverter.ToInt16(pcm, i * 2) / 32768f;
+                }
+
+                clip = AudioClip.Create(name, count / channels, channels, rate, false);
+                if (!clip.SetData(data, 0))
+                {
+                    Log.Warning($"Unity refused the samples for '{name}'.");
+                }
+
+                clip.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                return clip;
+            }
         }
     }
 }
