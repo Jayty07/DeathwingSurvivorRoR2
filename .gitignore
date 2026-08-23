@@ -10,3 +10,4 @@ art/
 *.bundle
 *.dwm
 deathwing.manifest
+__pycache__/

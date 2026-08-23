@@ -42,6 +42,7 @@ namespace Deathwing.Modules
             ConfigureCamera(bodyPrefab.GetComponent<CameraTargetParams>());
             ConfigureModel(bodyPrefab.GetComponent<ModelLocator>());
             ConfigureDurability(bodyPrefab);
+            bodyPrefab.AddComponent<DeathwingPresence>();
 
             displayPrefab = CreateDisplayPrefab();
 

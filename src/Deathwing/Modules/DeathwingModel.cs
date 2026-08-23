@@ -428,7 +428,10 @@ namespace Deathwing.Modules
                     Texture2D texture = new Texture2D(width, height, format, mips > 1)
                     {
                         name = "texDeathwing_" + name,
-                        wrapMode = TextureWrapMode.Clamp,
+                        // The rig's UVs run past one tile (up to 3.2 in U on the body geoset), so
+                        // clamping leaves every wrapped island sampling the atlas' dark right edge -
+                        // which reads in game as the model only being textured on part of its body.
+                        wrapMode = TextureWrapMode.Repeat,
                         hideFlags = HideFlags.DontUnloadUnusedAsset
                     };
                     texture.LoadRawTextureData(pixels);

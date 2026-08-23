@@ -57,6 +57,7 @@ namespace Deathwing.SkillStates
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, duration + 0.5f);
             Util.PlaySound(Sounds.chargeStart, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.8f);
             ShakeCamera(transform.position, 3f, 0.3f, 30f);
             PlayDragonAnimation(DeathwingClips.charge, duration, "Body", "Sprint");
         }

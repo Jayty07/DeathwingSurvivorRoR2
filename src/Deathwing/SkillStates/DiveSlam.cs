@@ -90,6 +90,7 @@ namespace Deathwing.SkillStates
             Vector3 impact = GroundPosition(transform.position);
 
             Util.PlaySound(Sounds.diveImpact, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 1f, false, 90f);
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, impact, radius * 0.45f, gameObject);
             SpawnFireEffect(impact, radius * 0.4f);
             ShakeCamera(impact, 12f, 0.8f, radius + 60f);

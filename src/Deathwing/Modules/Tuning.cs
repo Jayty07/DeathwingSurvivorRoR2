@@ -18,6 +18,9 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelScale;
         internal static ConfigEntry<float> modelEmission;
         internal static ConfigEntry<bool> registerModel;
+        internal static ConfigEntry<float> realModelLift;
+        internal static ConfigEntry<bool> realModelVoice;
+        internal static ConfigEntry<float> realModelVoiceVolume;
 
         internal static ConfigEntry<float> moltenBloodMaxArmor;
         internal static ConfigEntry<float> moltenBloodMaxDamageMult;
@@ -48,14 +51,21 @@ namespace Deathwing.Modules
             tintModel = config.Bind("Stats", "Tint Model", true, "Recolour the placeholder chassis model molten black-and-orange. Ignored when the real model is in use.");
             useRealModel = config.Bind("Model", "Use Real Model", true,
                 "Draw the real Deathwing model when its art payload is available. Disable to fall back to the placeholder chassis mesh.");
-            realModelScale = config.Bind("Model", "Real Model Scale", 0.006f,
-                "Scale of the real model inside the character, before Model Scale is applied. He stands about 325 source units tall, so this puts him near 3.7m once Model Scale is applied.");
+            realModelScale = config.Bind("Model", "Real Model Scale", 0.0095f,
+                "Scale of the real model inside the character, before Model Scale is applied. His head sits about 220 source units up, so this puts it near 4m once Model Scale is applied.");
             modelEmission = config.Bind("Model", "Real Model Emission", 2.2f,
                 "How hot the model's glowing cracks and eyes burn.");
             registerModel = config.Bind("Model", "Register Model With Character Model", false,
                 "Hand the real model to the game's character model system, which draws elite, burn and "
                 + "cloak overlays on it and dissolves it on death - at the cost of also subjecting it to "
                 + "the spawn print effect, which can leave it clipped away entirely.");
+            realModelLift = config.Bind("Model", "Real Model Lift", 0f,
+                "Extra metres to raise the real model after its feet have been placed on the ground. "
+                + "Negative values sink him.");
+            realModelVoice = config.Bind("Audio", "Custom Voice", true,
+                "Play Deathwing's own roars, flame breath and taunt over the borrowed survivor sounds.");
+            realModelVoiceVolume = config.Bind("Audio", "Custom Voice Volume", 1f,
+                "Volume of those voice lines, from 0 to 1.");
 
             moltenBloodMaxArmor = config.Bind("Passive", "Molten Blood Max Armor", 60f, "Bonus armor at 0% health, scaled linearly by missing health.");
             moltenBloodMaxDamageMult = config.Bind("Passive", "Molten Blood Max Damage Bonus", 0.4f, "Bonus damage multiplier at 0% health, scaled linearly by missing health.");

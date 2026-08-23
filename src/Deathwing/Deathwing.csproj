@@ -33,6 +33,7 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/deathwing.dwm" LogicalName="Deathwing.deathwing.dwm"
                      Condition="Exists('$(MSBuildThisFileDirectory)../../art/deathwing.dwm')" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/icons/*.png" LogicalName="Deathwing.Icons.%(Filename).png" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/sounds/*.wav" LogicalName="Deathwing.Sounds.%(Filename).wav" />
   </ItemGroup>
 
   <!-- Optional: pass -p:GameDir="/path/to/Risk of Rain 2" to install the plugin on build. -->

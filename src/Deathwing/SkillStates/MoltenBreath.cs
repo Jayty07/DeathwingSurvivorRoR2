@@ -42,6 +42,7 @@ namespace Deathwing.SkillStates
         private bool mouthSearched;
         private GameObject jet;
         private bool jetSpawned;
+        private AudioSource voice;
 
         public override void OnEnter()
         {
@@ -52,6 +53,7 @@ namespace Deathwing.SkillStates
             StartAimMode(maxDuration + 1f);
             characterBody.SetAimTimer(maxDuration + 1f);
             Util.PlaySound(Sounds.breathStart, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.flameBreath, gameObject);
             PlayDragonAnimation(DeathwingClips.breathStart, windupDuration,
                 "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
         }
@@ -80,6 +82,7 @@ namespace Deathwing.SkillStates
             {
                 windupFinished = true;
                 Util.PlaySound(Sounds.breathLoop, gameObject);
+                voice = DeathwingVoice.Play(DeathwingVoice.flameLoop, gameObject, 0.85f, true);
                 StartJet();
 
                 // Jaw held open for as long as the flame lasts.
@@ -249,6 +252,7 @@ namespace Deathwing.SkillStates
         public override void OnExit()
         {
             Util.PlaySound(Sounds.breathStop, gameObject);
+            DeathwingVoice.Stop(voice);
 
             if (dragon)
             {

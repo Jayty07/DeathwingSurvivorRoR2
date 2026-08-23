@@ -48,6 +48,7 @@ namespace Deathwing.SkillStates
             characterBody.AddTimedBuff(Buffs.elementiumPlating, takeoffDuration);
             characterBody.SetAimTimer(maxFlightDuration);
             Util.PlaySound(Sounds.wingFlap, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.85f);
             PlayDragonAnimation(DeathwingClips.flightStart, takeoffDuration, "Body", "Jump");
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 1.4f * characterScale, gameObject);
         }

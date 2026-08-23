@@ -23,6 +23,9 @@ WANTED = [
     'Death', 'Taunt',
 ]
 
+# Clips the mod plays on a loop: their ends are made to meet exactly.
+LOOPING = {'Stand', 'Stand Ready', 'Walk A', 'Spell A', 'Spell H'}
+
 POS_TOLERANCE = 0.05
 ROT_TOLERANCE = 0.99999
 SCALE_TOLERANCE = 0.002
@@ -99,14 +102,45 @@ def sample(track, frame, default):
 
 
 def keys_for(track, seq, default, converter):
-    """Keys inside a sequence's frame range, in seconds, converted to Unity space."""
+    """Keys inside a sequence's frame range, in seconds, converted to Unity space.
+
+    MDX stores every sequence on one global timeline, so a track whose keys stop inside this
+    sequence must be held, not interpolated on towards the next sequence's keys: doing that
+    turns a still pose into a six second drift that snaps back when the clip loops. The track
+    is therefore clipped to the keys inside the range and clamped at both ends.
+    """
     start, end = seq['start'], seq['end']
-    frames = set([start, end])
+    inside = None
     if track is not None:
-        frames.update(f for f, _ in track['keys'] if start <= f <= end)
+        inside = {'keys': [(f, v) for f, v in track['keys'] if start <= f <= end]}
+        if not inside['keys']:
+            # Nothing authored in this range: the bone holds one pose for the whole sequence.
+            inside = {'keys': [(start, sample(track, start, default))]}
+
+    frames = set([start, end])
+    if inside is not None:
+        frames.update(f for f, _ in inside['keys'])
     out = []
     for f in sorted(frames):
-        out.append(((f - start) / 1000.0, converter(sample(track, f, default))))
+        out.append(((f - start) / 1000.0, converter(sample(inside, f, default))))
+    return out
+
+
+def close_loop(keys):
+    """Spread a looping track's start-to-end drift over the clip so its ends meet."""
+    if len(keys) < 2:
+        return keys
+    duration = keys[-1][0] - keys[0][0]
+    if duration <= 0:
+        return keys
+    first, last = keys[0][1], keys[-1][1]
+    drift = [b - a for a, b in zip(first, last)]
+    if max(abs(d) for d in drift) < 1e-5:
+        return keys
+    out = []
+    for t, v in keys:
+        u = (t - keys[0][0]) / duration
+        out.append((t, [c - d * u for c, d in zip(v, drift)]))
     return out
 
 
@@ -268,6 +302,8 @@ def main(mdx_path, diffuse_path, emissive_path, out_path):
             pos = [(t, [rest[i][j] + v[j] for j in range(3)]) for t, v in pos]
             rot = keys_for(b['tracks'].get('KGRT'), seq, [0.0, 0.0, 0.0, 1.0], quat)
             scl = keys_for(b['tracks'].get('KGSC'), seq, [1.0, 1.0, 1.0], scale)
+            if name in LOOPING:
+                pos = close_loop(pos)
             pos = reduce_keys(pos, POS_TOLERANCE)
             rot = reduce_keys(rot, ROT_TOLERANCE, rotation=True)
             scl = reduce_keys(scl, SCALE_TOLERANCE)

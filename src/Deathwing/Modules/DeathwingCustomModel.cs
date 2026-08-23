@@ -30,6 +30,7 @@ namespace Deathwing.Modules
 
         private CharacterModel characterModel;
         private float age;
+        private bool aligned;
 
         private void OnEnable()
         {
@@ -47,6 +48,8 @@ namespace Deathwing.Modules
             {
                 Apply();
             }
+
+            Align();
 
             if (age > assertDuration)
             {
@@ -120,6 +123,46 @@ namespace Deathwing.Modules
             }
 
             Reassert();
+        }
+
+        /// <summary>
+        /// Stands the dragon on the ground. The chassis' model base is offset for the borrowed mesh,
+        /// whose origin is at its hips rather than its feet, so the dragon - whose origin is between
+        /// his claws - is planted below the floor by that offset. Rather than guess at it, the model is
+        /// raised by however far its lowest drawn point sits under the capsule's base.
+        /// </summary>
+        private void Align()
+        {
+            if (aligned || ours.Count == 0 || age < 0.2f)
+            {
+                return;
+            }
+
+            CharacterBody body = GetComponentInParent<CharacterBody>();
+            Transform root = ours[0].transform.parent;
+            if (!body || !root)
+            {
+                return;
+            }
+
+            float lowest = float.MaxValue;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                if (renderer.sharedMesh)
+                {
+                    lowest = Mathf.Min(lowest, renderer.bounds.min.y);
+                }
+            }
+
+            if (lowest == float.MaxValue)
+            {
+                return;
+            }
+
+            aligned = true;
+            float lift = body.footPosition.y - lowest + Tuning.realModelLift.Value;
+            root.position += Vector3.up * lift;
+            Log.Info($"Raised the model {lift:0.###}m to stand its claws on the ground.");
         }
 
         /// <summary>True once the handover has been made and nothing has undone it.</summary>
