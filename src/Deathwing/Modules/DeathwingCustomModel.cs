@@ -42,6 +42,7 @@ namespace Deathwing.Modules
         private float age;
         private bool fitted;
         private float logged;
+        private Vector3 anchor;
 
         private void OnEnable()
         {
@@ -51,13 +52,16 @@ namespace Deathwing.Modules
         private void LateUpdate()
         {
             age += Time.deltaTime;
-            if (Claimed())
+            if (age <= assertDuration)
             {
-                Reassert();
-            }
-            else
-            {
-                Apply();
+                if (Claimed())
+                {
+                    Reassert();
+                }
+                else
+                {
+                    Apply();
+                }
             }
 
             Fit();
@@ -65,7 +69,10 @@ namespace Deathwing.Modules
             if (age > assertDuration)
             {
                 Report();
-                enabled = false;
+
+                // Nothing left to do for a body drawing the chassis mesh; a body drawing the dragon
+                // keeps running to hold him at the height the correction settled on.
+                enabled = ours.Count > 0;
             }
         }
 
@@ -222,6 +229,19 @@ namespace Deathwing.Modules
             {
                 fitted = true;
                 Resize(root);
+                anchor = root.localPosition;
+            }
+
+            if (age > alignDuration)
+            {
+                // Held where the correction settled, because an animation clip or the skin system
+                // moving the model root sinks him again and does so silently.
+                if (root.localPosition != anchor)
+                {
+                    root.localPosition = anchor;
+                }
+
+                return;
             }
 
             if (!Drawn(out float bottom))
@@ -229,20 +249,45 @@ namespace Deathwing.Modules
                 return;
             }
 
-            float ground = body.footPosition.y + Tuning.realModelLift.Value;
-            float delta = ground - bottom;
-            if (Mathf.Abs(delta) < 0.02f)
-            {
-                return;
-            }
+            float ground = Ground(body, out string from);
 
+            float delta = ground + Tuning.realModelLift.Value - bottom;
             root.position += Vector3.up * delta;
+            anchor = root.localPosition;
+
             if (Time.time > logged + 0.75f)
             {
                 logged = Time.time;
-                Log.Info($"Moved the model {delta:0.###}m onto the ground (its drawn bottom was at "
-                    + $"{bottom:0.##}, ground at {ground:0.##}, root now at {root.position.y:0.##}).");
+                Log.Info($"Moved the model {delta:0.###}m onto the ground read from {from} (his drawn "
+                    + $"bottom was at {bottom:0.##}, that ground at {ground:0.##}, his foot position at "
+                    + $"{body.footPosition.y:0.##}, model root now at {root.position.y:0.##}).");
             }
+        }
+
+        /// <summary>
+        /// The height his feet should be drawn at. The borrowed chassis mesh is preferred over his own
+        /// foot position: the game places and animates that mesh itself, so wherever its feet are drawn
+        /// is the one height in the hierarchy that cannot be out by a space, a unit or a pivot.
+        /// </summary>
+        private float Ground(CharacterBody body, out string from)
+        {
+            float bottom = float.MaxValue;
+            foreach (SkinnedMeshRenderer renderer in chassis)
+            {
+                if (renderer && renderer.sharedMesh)
+                {
+                    bottom = Mathf.Min(bottom, renderer.bounds.min.y);
+                }
+            }
+
+            if (bottom < float.MaxValue)
+            {
+                from = "the chassis mesh";
+                return bottom;
+            }
+
+            from = "his foot position";
+            return body.footPosition.y;
         }
 
         /// <summary>Scales the model so his silhouette stands the configured number of metres tall.</summary>
@@ -350,6 +395,20 @@ namespace Deathwing.Modules
             }
 
             CharacterBody body = characterModel ? characterModel.body : null;
+            if (Drawn(out float drawn))
+            {
+                report.Append($"\n  drawn bottom: {drawn:0.##}");
+            }
+
+            foreach (SkinnedMeshRenderer renderer in chassis)
+            {
+                if (renderer && renderer.sharedMesh)
+                {
+                    report.Append($"\n  chassis {renderer.name}: bottom {renderer.bounds.min.y:0.##}, "
+                        + $"top {renderer.bounds.max.y:0.##}");
+                }
+            }
+
             Transform root = ours[0].transform.parent;
             report.Append($"\n  body: {(body ? body.name + " at " + body.footPosition : "none - this is the menu's display model")}");
             report.Append($"\n  root: {(root ? root.name + " at " + root.position : "none")}");
