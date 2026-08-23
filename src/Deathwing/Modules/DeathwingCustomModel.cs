@@ -31,6 +31,10 @@ namespace Deathwing.Modules
         /// <summary>How long after spawning his footing keeps being corrected.</summary>
         private const float alignDuration = 2.5f;
 
+        /// <summary>How far above and below him the surface he stands on is looked for.</summary>
+        private const float groundProbeRise = 4f;
+        private const float groundProbeDrop = 60f;
+
         private static bool reported;
 
         private readonly List<SkinnedMeshRenderer> ours = new List<SkinnedMeshRenderer>();
@@ -206,7 +210,7 @@ namespace Deathwing.Modules
         {
             // Long enough for the animator to have posed him: measuring the bind pose would size him
             // by his outstretched wings instead of his standing height.
-            if (ours.Count == 0 || age < 0.4f || age > alignDuration)
+            if (ours.Count == 0 || age < 0.4f)
             {
                 return;
             }
@@ -265,12 +269,20 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// The height his feet should be drawn at. The borrowed chassis mesh is preferred over his own
-        /// foot position: the game places and animates that mesh itself, so wherever its feet are drawn
-        /// is the one height in the hierarchy that cannot be out by a space, a unit or a pivot.
+        /// The height his feet should be drawn at. The surface under him is found by casting against the
+        /// world, because everything the hierarchy offers as a ground - his foot position, the chassis
+        /// mesh's own bottom - has turned out to sit below the surface that is actually drawn.
         /// </summary>
         private float Ground(CharacterBody body, out string from)
         {
+            Vector3 above = body.corePosition + Vector3.up * groundProbeRise;
+            if (Physics.Raycast(above, Vector3.down, out RaycastHit hit,
+                groundProbeRise + groundProbeDrop, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+            {
+                from = "the surface under him";
+                return hit.point.y;
+            }
+
             float bottom = float.MaxValue;
             foreach (SkinnedMeshRenderer renderer in chassis)
             {

@@ -54,7 +54,7 @@ namespace Deathwing.Modules
                 "Draw the real Deathwing model when its art payload is available. Disable to fall back to the placeholder chassis mesh.");
             realModelScale = config.Bind("Model", "Real Model Scale", 0.0095f,
                 "Scale the real model is built at. In game it is resized to Real Model Height, so this only affects the character select model.");
-            realModelHeight = config.Bind("Model", "Real Model Height", 7f,
+            realModelHeight = config.Bind("Model", "Real Model Height", 11f,
                 "Metres from his claws to the top of his standing pose. He is measured after spawning and "
                 + "scaled to match, so this is the one dial for his size. 0 leaves him at Real Model Scale.");
             modelEmission = config.Bind("Model", "Real Model Emission", 2.2f,
