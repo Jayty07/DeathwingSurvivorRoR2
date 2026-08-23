@@ -28,6 +28,9 @@ namespace Deathwing.Modules
         /// </summary>
         private const float boneSpanShare = 0.85f;
 
+        /// <summary>How long after spawning his footing keeps being corrected.</summary>
+        private const float alignDuration = 2.5f;
+
         private static bool reported;
 
         private readonly List<SkinnedMeshRenderer> ours = new List<SkinnedMeshRenderer>();
@@ -38,6 +41,7 @@ namespace Deathwing.Modules
         private CharacterModel characterModel;
         private float age;
         private bool fitted;
+        private float logged;
 
         private void OnEnable()
         {
@@ -133,11 +137,10 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// The lowest and highest point of his posed skeleton, in world space. The skeleton is used
-        /// rather than the mesh because a bone is a real transform: its world position needs no
-        /// assumption about whose units a measurement came back in, which is what made two earlier
-        /// attempts at this size him wrongly by a factor of hundreds. His renderer bounds are no use
-        /// either - they are deliberately widened so his wings and tail cannot cull him.
+        /// The lowest and highest point of his posed skeleton, in world space. His size is taken from
+        /// the skeleton rather than his bounds because bounds also enclose whatever his wings are doing,
+        /// and a bone is a real transform: its world position needs no assumption about which space a
+        /// measurement came back in, which is what sized him wrongly by a factor of hundreds twice.
         /// </summary>
         private bool Measure(out float lowest, out float highest)
         {
@@ -168,16 +171,35 @@ namespace Deathwing.Modules
             return highest > lowest;
         }
 
+        /// <summary>The lowest point of the geometry as it is actually drawn, in world space.</summary>
+        private bool Drawn(out float bottom)
+        {
+            bottom = float.MaxValue;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                if (renderer.sharedMesh)
+                {
+                    bottom = Mathf.Min(bottom, renderer.bounds.min.y);
+                }
+            }
+
+            return bottom < float.MaxValue;
+        }
+
         /// <summary>
-        /// Sizes the dragon to the height asked for and stands him on the ground, both measured from
-        /// the model as it is actually posed rather than from numbers authored for the rig. Doing it
-        /// here rather than in the config also makes it immune to a stale scale in an existing config.
+        /// Sizes the dragon to the height asked for and stands him on the ground.
+        ///
+        /// The size comes from his skeleton, but the standing is done as a correction rather than a
+        /// calculation: every attempt to work out where his feet ought to be from the rig has put him
+        /// somewhere else, so instead his drawn bounds are compared against the ground for a moment
+        /// after spawning and the difference is taken out. Whichever space the skinning resolves into,
+        /// that converges.
         /// </summary>
         private void Fit()
         {
             // Long enough for the animator to have posed him: measuring the bind pose would size him
             // by his outstretched wings instead of his standing height.
-            if (fitted || ours.Count == 0 || age < 0.4f)
+            if (ours.Count == 0 || age < 0.4f || age > alignDuration)
             {
                 return;
             }
@@ -196,36 +218,54 @@ namespace Deathwing.Modules
                 return;
             }
 
-            fitted = true;
+            if (!fitted)
+            {
+                fitted = true;
+                Resize(root);
+            }
 
+            if (!Drawn(out float bottom))
+            {
+                return;
+            }
+
+            float ground = body.footPosition.y + Tuning.realModelLift.Value;
+            float delta = ground - bottom;
+            if (Mathf.Abs(delta) < 0.02f)
+            {
+                return;
+            }
+
+            root.position += Vector3.up * delta;
+            if (Time.time > logged + 0.75f)
+            {
+                logged = Time.time;
+                Log.Info($"Moved the model {delta:0.###}m onto the ground (its drawn bottom was at "
+                    + $"{bottom:0.##}, ground at {ground:0.##}, root now at {root.position.y:0.##}).");
+            }
+        }
+
+        /// <summary>Scales the model so his silhouette stands the configured number of metres tall.</summary>
+        private void Resize(Transform root)
+        {
             if (!Measure(out float lowest, out float highest))
             {
-                Log.Warning("Could not measure the model; leaving its size and height alone.");
+                Log.Warning("Could not measure the model; leaving its size alone.");
                 return;
             }
 
             float height = (highest - lowest) / boneSpanShare;
-            if (Tuning.realModelHeight.Value > 0f && height > 0.001f)
+            if (Tuning.realModelHeight.Value <= 0f || height <= 0.001f)
             {
-                // Clamped because being wrong about a scale is the difference between a dragon and a
-                // map-sized one, and a refusal to resize is far easier to see and report than that.
-                float factor = Mathf.Clamp(Tuning.realModelHeight.Value / height, 0.02f, 50f);
-                root.localScale *= factor;
-                Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured across its "
-                    + $"skeleton, {Tuning.realModelHeight.Value:0.##}m asked for.");
-
-                // The bones have moved with the scale, so where his feet are has to be read again.
-                if (!Measure(out lowest, out highest))
-                {
-                    return;
-                }
+                return;
             }
 
-            float ground = body.footPosition.y;
-            float lift = ground - lowest + Tuning.realModelLift.Value;
-            root.position += Vector3.up * lift;
-            Log.Info($"Raised the model {lift:0.###}m to stand it on the ground (its lowest bone was "
-                + $"at {lowest:0.##}, ground at {ground:0.##}, top at {highest:0.##}).");
+            // Clamped because being wrong about a scale is the difference between a dragon and a
+            // map-sized one, and a refusal to resize is far easier to see and report than that.
+            float factor = Mathf.Clamp(Tuning.realModelHeight.Value / height, 0.02f, 50f);
+            root.localScale *= factor;
+            Log.Info($"Scaled the model {factor:0.###}x: {height:0.##}m measured across its skeleton, "
+                + $"{Tuning.realModelHeight.Value:0.##}m asked for.");
         }
 
         /// <summary>True once the handover has been made and nothing has undone it.</summary>
@@ -308,6 +348,11 @@ namespace Deathwing.Modules
                     + $", scale={renderer.transform.lossyScale.x:0.####}"
                     + $", bounds={bounds.center} size {bounds.size}");
             }
+
+            CharacterBody body = characterModel ? characterModel.body : null;
+            Transform root = ours[0].transform.parent;
+            report.Append($"\n  body: {(body ? body.name + " at " + body.footPosition : "none - this is the menu's display model")}");
+            report.Append($"\n  root: {(root ? root.name + " at " + root.position : "none")}");
 
             Animation animation = GetComponentInChildren<Animation>();
             report.Append($"\n  animation: {(animation ? (animation.isPlaying ? "playing" : "idle") : "missing")}");
