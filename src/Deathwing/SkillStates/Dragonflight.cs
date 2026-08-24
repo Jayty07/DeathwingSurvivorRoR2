@@ -1,0 +1,202 @@
+using Deathwing.Modules;
+using EntityStates;
+using RoR2;
+using UnityEngine;
+
+namespace Deathwing.SkillStates
+{
+    /// <summary>
+    /// His Z, and the spine of his kit. He beats his wings, climbs out of the fight and flies where he
+    /// looks: nothing can touch him up there, he closes his wounds as he goes, and he reforges his shed
+    /// elementium plates the moment he lands. It is also the only way those plates ever come back, which
+    /// is what makes leaving a fight a decision rather than a retreat.
+    /// </summary>
+    public class Dragonflight : BaseDeathwingSkillState
+    {
+        /// <summary>His own takeoff: three seconds of beating his wings before he is clear.</summary>
+        public static float takeoffDuration = 3f;
+        /// <summary>Kept gentle because the climb lasts three seconds; he rises, he is not fired upwards.</summary>
+        public static float takeoffVerticalSpeed = 9f;
+        public static float horizontalSpeedMultiplier = 2.4f;
+        public static float verticalSpeed = 12f;
+        public static float hoverDrift = -0.6f;
+        /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
+        public static float landDelay = 0.5f;
+
+        private float maxDuration;
+        private float healStopwatch;
+        private bool airborne;
+        private bool wantsToDive;
+        private bool wantsToLand;
+
+        public override void OnEnter()
+        {
+            base.OnEnter();
+            maxDuration = takeoffDuration + Tuning.dragonflightDuration.Value;
+
+            if (characterMotor)
+            {
+                characterMotor.useGravity = false;
+                characterMotor.disableAirControlUntilCollision = false;
+                characterMotor.velocity = new Vector3(
+                    characterMotor.velocity.x, takeoffVerticalSpeed, characterMotor.velocity.z);
+
+                // Ground snapping cancels the climb every step unless the motor is unstuck from it.
+                if (characterMotor.Motor)
+                {
+                    characterMotor.Motor.ForceUnground();
+                }
+            }
+
+            characterBody.SetAimTimer(maxDuration);
+            Util.PlaySound(Sounds.wingFlap, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.9f);
+            PlayDragonAnimation(DeathwingClips.flightStart, takeoffDuration, "Body", "Jump");
+            DeathwingAssets.SpawnEffect(
+                DeathwingAssets.roarEffect, transform.position, 1.6f * characterScale, gameObject);
+        }
+
+        public override void FixedUpdate()
+        {
+            base.FixedUpdate();
+
+            if (characterMotor)
+            {
+                characterMotor.velocity = FlightVelocity();
+            }
+
+            if (!airborne && fixedAge >= takeoffDuration)
+            {
+                airborne = true;
+                if (dragon)
+                {
+                    dragon.PlayHeld(DeathwingClips.flightLoop, 0.2f);
+                }
+            }
+
+            if (airborne)
+            {
+                // Untouchable and mending: refreshed each step rather than applied once, so nothing that
+                // strips buffs can leave him flying without either.
+                characterBody.AddTimedBuff(RoR2Content.Buffs.Immune, 0.3f);
+                Heal();
+            }
+
+            if (!isAuthority)
+            {
+                return;
+            }
+
+            if (inputBank && inputBank.skill1.justPressed && airborne)
+            {
+                wantsToDive = true;
+            }
+            else if (fixedAge > takeoffDuration + landDelay && Tuning.dragonflightKey.Value.IsDown())
+            {
+                wantsToLand = true;
+            }
+
+            if (wantsToDive)
+            {
+                outer.SetNextState(new DiveSlam());
+                return;
+            }
+
+            if (wantsToLand || fixedAge >= maxDuration)
+            {
+                outer.SetNextStateToMain();
+            }
+        }
+
+        /// <summary>Closes his wounds a fraction of his maximum health at a time while he is up.</summary>
+        private void Heal()
+        {
+            if (!isAuthority || !healthComponent)
+            {
+                return;
+            }
+
+            healStopwatch += GetDeltaTime();
+            if (healStopwatch < 0.25f)
+            {
+                return;
+            }
+
+            healthComponent.Heal(
+                healthComponent.fullHealth * Tuning.dragonflightHealFraction.Value * healStopwatch, default);
+            healStopwatch = 0f;
+        }
+
+        /// <summary>Climbs on takeoff, then steers with the camera; hold still to hover.</summary>
+        private Vector3 FlightVelocity()
+        {
+            if (!airborne)
+            {
+                return new Vector3(
+                    characterMotor.velocity.x * 0.9f, takeoffVerticalSpeed, characterMotor.velocity.z * 0.9f);
+            }
+
+            Vector3 velocity = Vector3.up * hoverDrift;
+
+            if (inputBank)
+            {
+                Vector3 moveInput = inputBank.moveVector;
+                if (moveInput.sqrMagnitude > 0.01f)
+                {
+                    Vector3 aim = GetAimRay().direction;
+                    Vector3 flatAim = new Vector3(aim.x, 0f, aim.z).normalized;
+                    Vector3 right = Vector3.Cross(Vector3.up, flatAim);
+
+                    // Forward follows the full aim direction, so looking up climbs and looking down dives;
+                    // strafing stays level.
+                    Vector3 direction = aim * Vector3.Dot(moveInput.normalized, flatAim)
+                        + right * Vector3.Dot(moveInput.normalized, right);
+
+                    velocity += direction.normalized * (moveSpeedStat * horizontalSpeedMultiplier);
+                }
+
+                if (inputBank.jump.down)
+                {
+                    velocity += Vector3.up * verticalSpeed;
+                }
+            }
+
+            if (characterDirection)
+            {
+                Vector3 facing = new Vector3(velocity.x, 0f, velocity.z);
+                if (facing.sqrMagnitude > 1f)
+                {
+                    characterDirection.forward = facing.normalized;
+                }
+            }
+
+            return velocity;
+        }
+
+        public override void OnExit()
+        {
+            if (characterMotor)
+            {
+                characterMotor.useGravity = true;
+            }
+
+            // A dive plays its own landing, so the settling wingbeat is only for flights he ends himself.
+            if (dragon)
+            {
+                dragon.Release(wantsToDive ? null : DeathwingClips.flightLand, 0.5f);
+            }
+
+            // Reforged on landing from the health he lands with, exactly as his trait does it. A dive is
+            // still a landing, so it counts too.
+            DeathwingForms forms = GetComponent<DeathwingForms>();
+            if (forms)
+            {
+                forms.OnDragonflightLanded(forms.currentForm);
+            }
+
+            base.OnExit();
+        }
+
+        public override InterruptPriority GetMinimumInterruptPriority() => InterruptPriority.PrioritySkill;
+    }
+}

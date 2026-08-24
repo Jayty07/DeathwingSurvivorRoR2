@@ -34,7 +34,7 @@ namespace Deathwing.Modules
 
             ContentAddition.AddSurvivorDef(survivorDef);
 
-            RecalculateStatsAPI.GetStatCoefficients += ApplyMoltenBlood;
+            RecalculateStatsAPI.GetStatCoefficients += ApplyAspectOfDeath;
             BodyCatalog.availability.CallWhenAvailable(CacheBodyIndex);
         }
 
@@ -44,10 +44,11 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Molten Blood: armor and damage scale with missing health, so being brought low makes
-        /// Deathwing more dangerous rather than less.
+        /// Aspect of Death: his armor is the plates he still wears, so it steps down as he is wounded
+        /// rather than sliding, and it does not come back on its own. Plate bookkeeping lives on
+        /// <see cref="AspectOfDeath"/>; this only turns the count into armor.
         /// </summary>
-        private static void ApplyMoltenBlood(CharacterBody body, RecalculateStatsAPI.StatHookEventArgs args)
+        private static void ApplyAspectOfDeath(CharacterBody body, RecalculateStatsAPI.StatHookEventArgs args)
         {
             if (!body || body.bodyIndex != bodyIndex)
             {
@@ -59,15 +60,11 @@ namespace Deathwing.Modules
                 args.armorAdd += Buffs.elementiumPlatingArmor;
             }
 
-            HealthComponent healthComponent = body.healthComponent;
-            if (!healthComponent || healthComponent.fullCombinedHealth <= 0f)
+            AspectOfDeath aspect = body.GetComponent<AspectOfDeath>();
+            if (aspect)
             {
-                return;
+                args.armorAdd += Tuning.platingArmorPerPlate.Value * aspect.platesRemaining;
             }
-
-            float missingHealthFraction = Mathf.Clamp01(1f - healthComponent.combinedHealth / healthComponent.fullCombinedHealth);
-            args.armorAdd += Tuning.moltenBloodMaxArmor.Value * missingHealthFraction;
-            args.damageMultAdd += Tuning.moltenBloodMaxDamageMult.Value * missingHealthFraction;
         }
     }
 }

@@ -43,6 +43,10 @@ namespace Deathwing.Modules
             ConfigureModel(bodyPrefab.GetComponent<ModelLocator>());
             ConfigureDurability(bodyPrefab);
             bodyPrefab.AddComponent<DeathwingPresence>();
+            // His trait and his form toggle: the plates have to exist before the stat hook reads them,
+            // and the form component owns the keys his off-slot abilities are cast from.
+            bodyPrefab.AddComponent<AspectOfDeath>();
+            bodyPrefab.AddComponent<DeathwingForms>();
 
             displayPrefab = CreateDisplayPrefab();
 

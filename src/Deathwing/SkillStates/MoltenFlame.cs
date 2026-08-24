@@ -6,17 +6,20 @@ using UnityEngine;
 namespace Deathwing.SkillStates
 {
     /// <summary>
-    /// Secondary variant: a sustained cone of dragonfire. Held down, it ticks damage into everything in
-    /// front of Deathwing and ignites it, but roots him to a crawl while he breathes.
+    /// His Q. A sustained jet of dragonfire that ticks eight times a second into everything in front of
+    /// him and ignites it, at the cost of rooting him to a crawl while it burns. In Heroes of the Storm
+    /// the flame is paid for out of Energy; here it is a channel with a duration and a short cooldown,
+    /// since a resource bar would need a custom HUD.
     /// </summary>
-    public class MoltenBreath : BaseDeathwingSkillState
+    public class MoltenFlame : BaseDeathwingSkillState
     {
-        public static float baseWindupDuration = 0.4f;
-        public static float baseMaxDuration = 3.5f;
-        public static float tickInterval = 0.2f;
+        public static float baseWindupDuration = 0.6f;
+        public static float baseMaxDuration = 4f;
+        /// <summary>His own cadence: damage every eighth of a second.</summary>
+        public static float tickInterval = 0.125f;
         public static float range = 55f;
         public static float coneHalfAngle = 18f;
-        public static float moveSpeedMultiplier = 0.35f;
+        public static float moveSpeedMultiplier = 0.15f;
         public static float force = 250f;
         public static int visualSteps = 7;
         public static float visualStartDistance = 1.5f;
@@ -173,7 +176,7 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            float tickCoefficient = Tuning.breathDamageCoefficient.Value * tickInterval;
+            float tickCoefficient = Tuning.moltenFlameDamageCoefficient.Value * tickInterval;
 
             // Overlapping blasts walked along the aim ray approximate a cone: each is placed further
             // out and widened by the cone's angle, which avoids needing a custom collider.

@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace Deathwing.Modules
 {
@@ -24,21 +25,39 @@ namespace Deathwing.Modules
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
 
-        internal static ConfigEntry<float> moltenBloodMaxArmor;
-        internal static ConfigEntry<float> moltenBloodMaxDamageMult;
+        internal static ConfigEntry<float> platingArmorPerPlate;
 
         internal static ConfigEntry<float> clawDamageCoefficient;
         internal static ConfigEntry<float> boulderDamageCoefficient;
         internal static ConfigEntry<float> boulderCooldown;
-        internal static ConfigEntry<float> breathDamageCoefficient;
-        internal static ConfigEntry<float> breathCooldown;
         internal static ConfigEntry<float> breathWidth;
         internal static ConfigEntry<float> chargeDamageCoefficient;
         internal static ConfigEntry<float> chargeCooldown;
-        internal static ConfigEntry<float> flightCooldown;
-        internal static ConfigEntry<float> flightDuration;
-        internal static ConfigEntry<float> cataclysmDamageCoefficient;
-        internal static ConfigEntry<float> cataclysmCooldown;
+
+        internal static ConfigEntry<float> moltenFlameDamageCoefficient;
+        internal static ConfigEntry<float> moltenFlameCooldown;
+        internal static ConfigEntry<float> incinerateDamageCoefficient;
+        internal static ConfigEntry<float> incinerateCooldown;
+        internal static ConfigEntry<float> lavaBurstDamageCoefficient;
+        internal static ConfigEntry<float> lavaBurstCooldown;
+        internal static ConfigEntry<float> onslaughtDamageCoefficient;
+        internal static ConfigEntry<float> onslaughtBiteDamageCoefficient;
+        internal static ConfigEntry<float> onslaughtCooldown;
+        internal static ConfigEntry<float> earthShatterDamageCoefficient;
+        internal static ConfigEntry<float> earthShatterCooldown;
+        internal static ConfigEntry<float> dragonflightCooldown;
+        internal static ConfigEntry<float> dragonflightDuration;
+        internal static ConfigEntry<float> dragonflightHealFraction;
+        internal static ConfigEntry<float> dragonflightCombatLockout;
+        internal static ConfigEntry<float> heroicCataclysmDamageCoefficient;
+        internal static ConfigEntry<float> heroicCataclysmCooldown;
+        internal static ConfigEntry<float> bellowingRoarDamageCoefficient;
+        internal static ConfigEntry<float> bellowingRoarCooldown;
+
+        internal static ConfigEntry<KeyboardShortcut> dragonflightKey;
+        internal static ConfigEntry<KeyboardShortcut> formSwitchKey;
+        internal static ConfigEntry<KeyboardShortcut> heroicCataclysmKey;
+        internal static ConfigEntry<KeyboardShortcut> bellowingRoarKey;
 
         internal static void Init(ConfigFile config)
         {
@@ -75,22 +94,64 @@ namespace Deathwing.Modules
             realModelVoiceVolume = config.Bind("Audio", "Custom Voice Volume", 1f,
                 "Volume of those voice lines, from 0 to 1.");
 
-            moltenBloodMaxArmor = config.Bind("Passive", "Molten Blood Max Armor", 60f, "Bonus armor at 0% health, scaled linearly by missing health.");
-            moltenBloodMaxDamageMult = config.Bind("Passive", "Molten Blood Max Damage Bonus", 0.4f, "Bonus damage multiplier at 0% health, scaled linearly by missing health.");
-
             clawDamageCoefficient = config.Bind("Skills", "Molten Claw Damage", 3.2f, "Damage coefficient per claw swipe.");
             boulderDamageCoefficient = config.Bind("Skills", "Molten Boulder Damage", 6f, "Damage coefficient of the boulder impact.");
             boulderCooldown = config.Bind("Skills", "Molten Boulder Cooldown", 5f, "Cooldown in seconds.");
-            breathDamageCoefficient = config.Bind("Skills", "Molten Breath Damage", 4.5f, "Damage coefficient per second of fire breath.");
-            breathCooldown = config.Bind("Skills", "Molten Breath Cooldown", 7f, "Cooldown in seconds.");
             breathWidth = config.Bind("Skills", "Molten Breath Width", 3.2f,
                 "How much wider the flame is drawn than the flamethrower drone sprays it. Visual only.");
             chargeDamageCoefficient = config.Bind("Skills", "Elementium Charge Damage", 5f, "Damage coefficient per enemy trampled.");
             chargeCooldown = config.Bind("Skills", "Elementium Charge Cooldown", 8f, "Cooldown in seconds.");
-            flightCooldown = config.Bind("Skills", "Wings Of The Destroyer Cooldown", 12f, "Cooldown in seconds. Unused flight time is partially refunded.");
-            flightDuration = config.Bind("Skills", "Wings Of The Destroyer Duration", 6f, "Maximum seconds airborne before the wings give out.");
-            cataclysmDamageCoefficient = config.Bind("Skills", "Cataclysm Damage", 4f, "Damage coefficient per fissure ring.");
-            cataclysmCooldown = config.Bind("Skills", "Cataclysm Cooldown", 14f, "Cooldown in seconds.");
+
+            platingArmorPerPlate = config.Bind("Passive", "Armor Per Plate", 15f,
+                "Armor each of his four elementium plates grants. One plate is shed for every 25% of his "
+                + "health he has lost, and they are only rebuilt by Dragonflight.");
+
+            // His Heroes of the Storm kit. Cooldowns are his own; damage is his own figures converted to
+            // Risk of Rain coefficients at the same ratio his flame breath was converted at, so the kit
+            // keeps its internal balance rather than each skill being guessed at separately.
+            moltenFlameDamageCoefficient = config.Bind("HotS Skills", "Molten Flame Damage", 4.5f,
+                "Damage coefficient per second of the flame channel.");
+            moltenFlameCooldown = config.Bind("HotS Skills", "Molten Flame Cooldown", 3f, "Cooldown in seconds.");
+            incinerateDamageCoefficient = config.Bind("HotS Skills", "Incinerate Damage", 3f,
+                "Damage coefficient of the wing beat around him.");
+            incinerateCooldown = config.Bind("HotS Skills", "Incinerate Cooldown", 7f, "Cooldown in seconds.");
+            lavaBurstDamageCoefficient = config.Bind("HotS Skills", "Lava Burst Damage", 1f,
+                "Damage coefficient of the impact. The pool it leaves burns for a fraction of this per second.");
+            lavaBurstCooldown = config.Bind("HotS Skills", "Lava Burst Cooldown", 9f, "Cooldown in seconds.");
+            onslaughtDamageCoefficient = config.Bind("HotS Skills", "Onslaught Damage", 1.8f,
+                "Damage coefficient of the lunge itself.");
+            onslaughtBiteDamageCoefficient = config.Bind("HotS Skills", "Onslaught Bite Damage", 3.5f,
+                "Damage coefficient of the bite at the end of the lunge, where it hits hardest.");
+            onslaughtCooldown = config.Bind("HotS Skills", "Onslaught Cooldown", 6f, "Cooldown in seconds.");
+            earthShatterDamageCoefficient = config.Bind("HotS Skills", "Earth Shatter Damage", 2.7f,
+                "Damage coefficient per fissure.");
+            earthShatterCooldown = config.Bind("HotS Skills", "Earth Shatter Cooldown", 12f, "Cooldown in seconds.");
+            dragonflightCooldown = config.Bind("HotS Skills", "Dragonflight Cooldown", 20f, "Cooldown in seconds.");
+            dragonflightDuration = config.Bind("HotS Skills", "Dragonflight Duration", 8f,
+                "Maximum seconds he stays in the sky before landing on his own.");
+            dragonflightHealFraction = config.Bind("HotS Skills", "Dragonflight Heal Per Second", 0.025f,
+                "Fraction of his maximum health healed per second while flying.");
+            dragonflightCombatLockout = config.Bind("HotS Skills", "Dragonflight Combat Lockout", 6f,
+                "Seconds after taking damage or using a skill before Dragonflight can be cast.");
+            heroicCataclysmDamageCoefficient = config.Bind("HotS Skills", "Heroic Cataclysm Damage", 2.7f,
+                "Damage coefficient of the impact. The scorched ground burns for a fraction of this per second.");
+            heroicCataclysmCooldown = config.Bind("HotS Skills", "Heroic Cataclysm Cooldown", 30f,
+                "Cooldown in seconds. His own is 90, which is a Heroes of the Storm match rather than a run.");
+            bellowingRoarDamageCoefficient = config.Bind("HotS Skills", "Bellowing Roar Damage", 0.75f,
+                "Damage coefficient of the roar. Its point is the rout, not the damage.");
+            bellowingRoarCooldown = config.Bind("HotS Skills", "Bellowing Roar Cooldown", 25f, "Cooldown in seconds.");
+
+            // His last three abilities have no slot to live in: Risk of Rain gives a survivor four, and
+            // his kit has seven things in it.
+            dragonflightKey = config.Bind("HotS Keys", "Dragonflight", new KeyboardShortcut(KeyCode.Z),
+                "Takes off, heals him and rebuilds his plates.");
+            formSwitchKey = config.Bind("HotS Keys", "Form Switch", new KeyboardShortcut(KeyCode.X),
+                "Swaps between Destroyer form (Incinerate and Onslaught) and World Breaker form "
+                + "(Lava Burst and Earth Shatter).");
+            heroicCataclysmKey = config.Bind("HotS Keys", "Cataclysm", new KeyboardShortcut(KeyCode.C),
+                "His heroic: flies across the battlefield leaving it burning.");
+            bellowingRoarKey = config.Bind("HotS Keys", "Bellowing Roar", new KeyboardShortcut(KeyCode.V),
+                "His second heroic: routs everything around him.");
         }
     }
 }

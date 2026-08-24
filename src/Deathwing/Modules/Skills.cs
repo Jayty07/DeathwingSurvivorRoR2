@@ -10,6 +10,15 @@ namespace Deathwing.Modules
 {
     internal static class Skills
     {
+        /// <summary>His form skills, held so the form component can swap Utility and Special between them.</summary>
+        internal static SkillDef incinerate { get; private set; }
+
+        internal static SkillDef lavaBurst { get; private set; }
+
+        internal static SkillDef onslaught { get; private set; }
+
+        internal static SkillDef earthShatter { get; private set; }
+
         internal static void Init(GameObject bodyPrefab)
         {
             SkillLocator skillLocator = bodyPrefab.GetComponent<SkillLocator>();
@@ -30,10 +39,10 @@ namespace Deathwing.Modules
             Sprite specialIcon = ChassisIcon(skillLocator.special);
 
             SteppedSkillDef claw = CreateSteppedSkill<MoltenClaw>(
-                skillName: "DeathwingMoltenClaw",
+                skillName: "DeathwingClawAndBite",
                 nameToken: Tokens.primaryName,
                 descriptionToken: Tokens.primaryDescription,
-                icon: DeathwingIcons.Get(DeathwingIcons.onslaught, primaryIcon),
+                icon: DeathwingIcons.Get(DeathwingIcons.destroyer, primaryIcon),
                 stepCount: MoltenClaw.comboLength);
             // A primary needs a stock to spend: with a max of zero the slot is permanently greyed out.
             // A zero recharge interval restocks it instantly, which is how vanilla primaries work.
@@ -43,75 +52,88 @@ namespace Deathwing.Modules
             claw.activationStateMachineName = "Weapon";
             claw.interruptPriority = InterruptPriority.Any;
 
-            SkillDef boulder = CreateSkill<HurlMoltenBoulder>(
-                skillName: "DeathwingMoltenBoulder",
+            SkillDef flame = CreateSkill<MoltenFlame>(
+                skillName: "DeathwingMoltenFlame",
                 nameToken: Tokens.secondaryName,
                 descriptionToken: Tokens.secondaryDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.moltenFlame, secondaryIcon));
+            flame.baseRechargeInterval = Tuning.moltenFlameCooldown.Value;
+            flame.activationStateMachineName = "Weapon";
+            flame.interruptPriority = InterruptPriority.Skill;
+            // Held down for as long as the flame should last, and the cooldown only starts once it stops.
+            flame.mustKeyPress = true;
+            flame.beginSkillCooldownOnSkillEnd = true;
+            flame.canceledFromSprinting = true;
+
+            SkillDef boulder = CreateSkill<HurlMoltenBoulder>(
+                skillName: "DeathwingMoltenBoulder",
+                nameToken: Tokens.boulderName,
+                descriptionToken: Tokens.boulderDescription,
                 icon: DeathwingIcons.Get(DeathwingIcons.lavaBurst, secondaryIcon));
             boulder.baseRechargeInterval = Tuning.boulderCooldown.Value;
-            boulder.baseMaxStock = 1;
             boulder.activationStateMachineName = "Weapon";
             boulder.interruptPriority = InterruptPriority.Skill;
 
-            SkillDef breath = CreateSkill<MoltenBreath>(
-                skillName: "DeathwingMoltenBreath",
-                nameToken: Tokens.breathName,
-                descriptionToken: Tokens.breathDescription,
-                icon: DeathwingIcons.Get(DeathwingIcons.moltenFlame, secondaryIcon));
-            breath.baseRechargeInterval = Tuning.breathCooldown.Value;
-            breath.baseMaxStock = 1;
-            breath.activationStateMachineName = "Weapon";
-            breath.interruptPriority = InterruptPriority.Skill;
-            // Held down for as long as the flame should last, and the cooldown only starts once it stops.
-            breath.mustKeyPress = true;
-            breath.beginSkillCooldownOnSkillEnd = true;
-            breath.canceledFromSprinting = true;
+            incinerate = CreateSkill<Incinerate>(
+                skillName: "DeathwingIncinerate",
+                nameToken: Tokens.incinerateName,
+                descriptionToken: Tokens.incinerateDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.incinerate, utilityIcon));
+            incinerate.baseRechargeInterval = Tuning.incinerateCooldown.Value;
+            incinerate.activationStateMachineName = "Weapon";
+            incinerate.interruptPriority = InterruptPriority.Skill;
+
+            lavaBurst = CreateSkill<LavaBurst>(
+                skillName: "DeathwingLavaBurst",
+                nameToken: Tokens.lavaBurstName,
+                descriptionToken: Tokens.lavaBurstDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.lavaBurst, utilityIcon));
+            lavaBurst.baseRechargeInterval = Tuning.lavaBurstCooldown.Value;
+            lavaBurst.activationStateMachineName = "Weapon";
+            lavaBurst.interruptPriority = InterruptPriority.Skill;
+
+            onslaught = CreateSkill<Onslaught>(
+                skillName: "DeathwingOnslaught",
+                nameToken: Tokens.onslaughtName,
+                descriptionToken: Tokens.onslaughtDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.onslaught, specialIcon));
+            onslaught.baseRechargeInterval = Tuning.onslaughtCooldown.Value;
+            onslaught.activationStateMachineName = "Body";
+            onslaught.interruptPriority = InterruptPriority.PrioritySkill;
+            onslaught.cancelSprintingOnActivation = false;
+
+            earthShatter = CreateSkill<EarthShatter>(
+                skillName: "DeathwingEarthShatter",
+                nameToken: Tokens.earthShatterName,
+                descriptionToken: Tokens.earthShatterDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.earthShatter, specialIcon));
+            earthShatter.baseRechargeInterval = Tuning.earthShatterCooldown.Value;
+            earthShatter.activationStateMachineName = "Body";
+            earthShatter.interruptPriority = InterruptPriority.PrioritySkill;
 
             SkillDef charge = CreateSkill<ElementiumCharge>(
                 skillName: "DeathwingElementiumCharge",
-                nameToken: Tokens.utilityName,
-                descriptionToken: Tokens.utilityDescription,
-                icon: DeathwingIcons.Get(DeathwingIcons.destroyer, utilityIcon));
+                nameToken: Tokens.chargeName,
+                descriptionToken: Tokens.chargeDescription,
+                icon: utilityIcon);
             charge.baseRechargeInterval = Tuning.chargeCooldown.Value;
-            charge.baseMaxStock = 1;
             charge.activationStateMachineName = "Body";
             charge.interruptPriority = InterruptPriority.PrioritySkill;
-            charge.isCombatSkill = true;
             charge.cancelSprintingOnActivation = false;
 
-            SkillDef flight = CreateSkill<WingsOfTheDestroyer>(
-                skillName: "DeathwingWings",
-                nameToken: Tokens.flightName,
-                descriptionToken: Tokens.flightDescription,
-                icon: DeathwingIcons.Get(DeathwingIcons.dragonflight, utilityIcon));
-            flight.baseRechargeInterval = Tuning.flightCooldown.Value;
-            flight.baseMaxStock = 1;
-            flight.activationStateMachineName = "Body";
-            flight.interruptPriority = InterruptPriority.PrioritySkill;
-            flight.isCombatSkill = false;
-            flight.cancelSprintingOnActivation = false;
-            // A toggle: the state watches for the second press itself, so the slot must not re-activate
-            // on every frame the key is held.
-            flight.mustKeyPress = true;
-            flight.beginSkillCooldownOnSkillEnd = true;
-
-            SkillDef cataclysm = CreateSkill<Cataclysm>(
-                skillName: "DeathwingCataclysm",
-                nameToken: Tokens.specialName,
-                descriptionToken: Tokens.specialDescription,
-                icon: DeathwingIcons.Get(DeathwingIcons.cataclysm, specialIcon));
-            cataclysm.baseRechargeInterval = Tuning.cataclysmCooldown.Value;
-            cataclysm.baseMaxStock = 1;
-            cataclysm.activationStateMachineName = "Body";
-            cataclysm.interruptPriority = InterruptPriority.PrioritySkill;
-
-            // DiveSlam is entered from flight rather than from a slot, but still needs registering.
+            // Dragonflight, his heroics and the dive are all cast from keys or from flight rather than
+            // from a slot, so they are registered without a skill def of their own.
+            ContentAddition.AddEntityState<Dragonflight>(out _);
+            ContentAddition.AddEntityState<Cataclysm>(out _);
+            ContentAddition.AddEntityState<BellowingRoar>(out _);
             ContentAddition.AddEntityState<DiveSlam>(out _);
 
+            // His Heroes of the Storm kit is the default in every slot; the original Deathwing skills are
+            // kept as the second variant so the old kit is still playable from the loadout screen.
             AssignFamily(skillLocator, SkillSlot.Primary, claw);
-            AssignFamily(skillLocator, SkillSlot.Secondary, boulder, breath);
-            AssignFamily(skillLocator, SkillSlot.Utility, charge, flight);
-            AssignFamily(skillLocator, SkillSlot.Special, cataclysm);
+            AssignFamily(skillLocator, SkillSlot.Secondary, flame, boulder);
+            AssignFamily(skillLocator, SkillSlot.Utility, incinerate, charge);
+            AssignFamily(skillLocator, SkillSlot.Special, onslaught);
         }
 
         private static void SetupPassive(SkillLocator skillLocator)

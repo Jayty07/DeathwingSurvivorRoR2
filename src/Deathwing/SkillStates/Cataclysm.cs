@@ -7,8 +7,10 @@ using UnityEngine;
 namespace Deathwing.SkillStates
 {
     /// <summary>
-    /// Special: Deathwing roots himself, then splits the ground open in expanding rings of fissures.
-    /// Each ring is its own blast, so enemies caught close take every ring.
+    /// His heroic. Deathwing roots himself, then splits the ground open in expanding rings of fissures,
+    /// leaving the whole area scorched behind them. Each ring is its own blast, so anything caught close
+    /// takes every one of them. In Heroes of the Storm he flies the length of the battlefield to do this;
+    /// a Risk of Rain stage has no lane to fly down, so it is centred on him instead.
     /// </summary>
     public class Cataclysm : BaseDeathwingSkillState
     {
@@ -108,7 +110,7 @@ namespace Deathwing.SkillStates
 
             // Ring damage is modelled as a filled blast at the ring radius; the inner rings already
             // covered the ground closer to Deathwing.
-            BlastAttack blast = CreateFireBlast(center, radius, Tuning.cataclysmDamageCoefficient.Value, ringForce);
+            BlastAttack blast = CreateFireBlast(center, radius, Tuning.heroicCataclysmDamageCoefficient.Value, ringForce);
             blast.bonusForce = Vector3.up * (ringForce * 0.5f);
             blast.Fire();
         }
