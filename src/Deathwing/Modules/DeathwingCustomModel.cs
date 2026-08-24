@@ -38,7 +38,7 @@ namespace Deathwing.Modules
         private static bool reported;
 
         private readonly List<SkinnedMeshRenderer> ours = new List<SkinnedMeshRenderer>();
-        private readonly List<SkinnedMeshRenderer> chassis = new List<SkinnedMeshRenderer>();
+        private readonly List<Renderer> chassis = new List<Renderer>();
         private readonly Dictionary<SkinnedMeshRenderer, Material> materials =
             new Dictionary<SkinnedMeshRenderer, Material>();
 
@@ -46,7 +46,8 @@ namespace Deathwing.Modules
         private float age;
         private bool fitted;
         private float logged;
-        private Vector3 anchor;
+        private Vector3 rest;
+        private float rise;
 
         private void OnEnable()
         {
@@ -95,16 +96,29 @@ namespace Deathwing.Modules
             ours.Clear();
             chassis.Clear();
             int chassisLayer = gameObject.layer;
-            foreach (SkinnedMeshRenderer renderer in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+
+            // Every renderer is considered, not only the skinned ones: the borrowed survivor carries
+            // its weapons as plain meshes, so hiding its body alone leaves a pair of pistols floating
+            // inside the dragon. Particles and trails are left alone - those are its effects, not it.
+            foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
             {
-                if (renderer.GetComponentInParent<DeathwingAnimator>())
+                if (renderer is ParticleSystemRenderer || renderer is TrailRenderer
+                    || renderer is LineRenderer || renderer is BillboardRenderer)
                 {
-                    ours.Add(renderer);
+                    continue;
+                }
+
+                if (renderer is SkinnedMeshRenderer skinned && renderer.GetComponentInParent<DeathwingAnimator>())
+                {
+                    ours.Add(skinned);
                     continue;
                 }
 
                 chassis.Add(renderer);
-                chassisLayer = renderer.gameObject.layer;
+                if (renderer is SkinnedMeshRenderer)
+                {
+                    chassisLayer = renderer.gameObject.layer;
+                }
             }
 
             if (ours.Count == 0)
@@ -233,18 +247,14 @@ namespace Deathwing.Modules
             {
                 fitted = true;
                 Resize(root);
-                anchor = root.localPosition;
+                rest = root.localPosition;
             }
 
             if (age > alignDuration)
             {
                 // Held where the correction settled, because an animation clip or the skin system
                 // moving the model root sinks him again and does so silently.
-                if (root.localPosition != anchor)
-                {
-                    root.localPosition = anchor;
-                }
-
+                Place(root);
                 return;
             }
 
@@ -256,15 +266,31 @@ namespace Deathwing.Modules
             float ground = Ground(body, out string from);
 
             float delta = ground + Tuning.realModelLift.Value - bottom;
-            root.position += Vector3.up * delta;
-            anchor = root.localPosition;
+            rise += delta;
+            Place(root);
 
             if (Time.time > logged + 0.75f)
             {
                 logged = Time.time;
-                Log.Info($"Moved the model {delta:0.###}m onto the ground read from {from} (his drawn "
+                Log.Info($"Raised the model {rise:0.###}m onto the ground read from {from} (his drawn "
                     + $"bottom was at {bottom:0.##}, that ground at {ground:0.##}, his foot position at "
                     + $"{body.footPosition.y:0.##}, model root now at {root.position.y:0.##}).");
+            }
+        }
+
+        /// <summary>
+        /// Puts the model at its own rest position within the character's model, raised straight up in
+        /// world space. The rise is applied in world space rather than stored as a local offset because
+        /// the model base pitches and rolls as he moves, and a tilted local offset of several metres
+        /// slides him sideways instead of lifting him.
+        /// </summary>
+        private void Place(Transform root)
+        {
+            Transform parent = root.parent;
+            Vector3 target = (parent ? parent.TransformPoint(rest) : rest) + Vector3.up * rise;
+            if (root.position != target)
+            {
+                root.position = target;
             }
         }
 
@@ -284,9 +310,9 @@ namespace Deathwing.Modules
             }
 
             float bottom = float.MaxValue;
-            foreach (SkinnedMeshRenderer renderer in chassis)
+            foreach (Renderer renderer in chassis)
             {
-                if (renderer && renderer.sharedMesh)
+                if (renderer)
                 {
                     bottom = Mathf.Min(bottom, renderer.bounds.min.y);
                 }
@@ -365,7 +391,7 @@ namespace Deathwing.Modules
 
             // The chassis mesh stays in the hierarchy - hitboxes, footsteps and the ragdoll hang off
             // its skeleton - it simply stops being drawn.
-            foreach (SkinnedMeshRenderer renderer in chassis)
+            foreach (Renderer renderer in chassis)
             {
                 renderer.enabled = false;
                 renderer.forceRenderingOff = true;
@@ -412,11 +438,12 @@ namespace Deathwing.Modules
                 report.Append($"\n  drawn bottom: {drawn:0.##}");
             }
 
-            foreach (SkinnedMeshRenderer renderer in chassis)
+            foreach (Renderer renderer in chassis)
             {
-                if (renderer && renderer.sharedMesh)
+                if (renderer)
                 {
-                    report.Append($"\n  chassis {renderer.name}: bottom {renderer.bounds.min.y:0.##}, "
+                    report.Append($"\n  chassis {renderer.name} ({renderer.GetType().Name}): hidden"
+                        + $"={!renderer.enabled}, bottom {renderer.bounds.min.y:0.##}, "
                         + $"top {renderer.bounds.max.y:0.##}");
                 }
             }

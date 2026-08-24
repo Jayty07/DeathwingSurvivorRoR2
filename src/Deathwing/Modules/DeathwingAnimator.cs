@@ -148,6 +148,8 @@ namespace Deathwing.Modules
         {
             speed = 1f;
 
+            // The menu's display model has no body, and only it plays the relaxed stand: in a run he
+            // holds his combat-ready pose instead.
             if (!body)
             {
                 return DeathwingClips.idle;
@@ -167,7 +169,7 @@ namespace Deathwing.Modules
                 return DeathwingClips.walk;
             }
 
-            return DeathwingClips.idle;
+            return DeathwingClips.idleReady;
         }
     }
 }
