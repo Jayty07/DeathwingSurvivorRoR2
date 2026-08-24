@@ -14,7 +14,8 @@ namespace Deathwing.SkillStates
     /// </summary>
     public class Cataclysm : BaseDeathwingSkillState
     {
-        public static float baseChannelDuration = 1.4f;
+        /// <summary>His own two seconds between the call and the ground opening.</summary>
+        public static float baseChannelDuration = 2f;
         public static float baseEruptionDuration = 1.2f;
         public static float recoveryDuration = 0.6f;
         public static int ringCount = 3;
@@ -33,7 +34,8 @@ namespace Deathwing.SkillStates
         public override void OnEnter()
         {
             base.OnEnter();
-            channelDuration = baseChannelDuration / attackSpeedStat;
+            // Flat, not scaled by attack speed: his figure, and the telegraph is the point.
+            channelDuration = baseChannelDuration;
             eruptionDuration = baseEruptionDuration / attackSpeedStat;
 
             characterBody.AddTimedBuff(Buffs.elementiumPlating, channelDuration + eruptionDuration);

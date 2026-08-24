@@ -65,7 +65,8 @@ namespace Deathwing.Modules
             LanguageAPI.Add(secondaryName, "Molten Flame");
             LanguageAPI.Add(secondaryDescription,
                 $"<style=cIsDamage>Ignite.</style> Breathe a jet of dragonfire for <style=cIsDamage>{Tuning.moltenFlameDamageCoefficient.Value * 100f:0}% damage per second</style>, " +
-                $"for as long as you hold it up to <style=cIsUtility>{MoltenFlame.baseMaxDuration:0.#}s</style>. Deathwing is rooted to a crawl while it burns.");
+                $"for as long as you hold it up to <style=cIsUtility>{MoltenFlame.baseMaxDuration:0.#}s</style>. Takes " +
+                $"<style=cIsUtility>{MoltenFlame.baseWindupDuration:0.#}s</style> to catch, and roots Deathwing to a crawl while it burns.");
 
             LanguageAPI.Add(incinerateName, "Incinerate");
             LanguageAPI.Add(incinerateDescription,

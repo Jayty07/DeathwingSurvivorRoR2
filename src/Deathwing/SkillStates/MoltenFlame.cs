@@ -13,7 +13,8 @@ namespace Deathwing.SkillStates
     /// </summary>
     public class MoltenFlame : BaseDeathwingSkillState
     {
-        public static float baseWindupDuration = 0.6f;
+        /// <summary>His own windup: a second and a half of drawing breath before the flame catches.</summary>
+        public static float baseWindupDuration = 1.5f;
         public static float baseMaxDuration = 4f;
         /// <summary>His own cadence: damage every eighth of a second.</summary>
         public static float tickInterval = 0.125f;
@@ -50,7 +51,8 @@ namespace Deathwing.SkillStates
         public override void OnEnter()
         {
             base.OnEnter();
-            windupDuration = baseWindupDuration / attackSpeedStat;
+            // Not divided by attack speed: this is his figure, and scaling it would drift off it.
+            windupDuration = baseWindupDuration;
             maxDuration = baseMaxDuration;
 
             StartAimMode(maxDuration + 1f);
