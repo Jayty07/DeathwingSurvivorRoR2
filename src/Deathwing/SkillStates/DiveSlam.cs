@@ -91,6 +91,7 @@ namespace Deathwing.SkillStates
 
             Util.PlaySound(Sounds.diveImpact, gameObject);
             DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 1f, false, 90f);
+            DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 1f, false, 110f);
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, impact, radius * 0.45f, gameObject);
             SpawnFireEffect(impact, radius * 0.4f);
             ShakeCamera(impact, 12f, 0.8f, radius + 60f);

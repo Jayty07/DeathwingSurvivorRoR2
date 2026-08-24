@@ -106,6 +106,7 @@ namespace Deathwing.SkillStates
             if (index == 0)
             {
                 Util.PlaySound(Sounds.cataclysmErupt, gameObject);
+                DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 1f, false, 100f);
                 ShakeCamera(origin, 7f, 0.5f, fissureLength + 30f);
             }
         }

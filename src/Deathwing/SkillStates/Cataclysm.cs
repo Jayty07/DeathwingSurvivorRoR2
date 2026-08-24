@@ -80,6 +80,7 @@ namespace Deathwing.SkillStates
             Vector3 center = GroundPosition(transform.position);
 
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 1f, false, 140f);
             ShakeCamera(center, ringShakeMagnitude, 0.6f, radius + 40f);
 
             for (int i = 0; i < fissuresPerRing; i++)

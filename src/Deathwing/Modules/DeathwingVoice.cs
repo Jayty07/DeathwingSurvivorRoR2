@@ -25,13 +25,28 @@ namespace Deathwing.Modules
         internal const string flameBreath = "Deathwing_FlameBreath";
         internal const string flameLoop = "Deathwing_FlameLoop";
         internal const string taunt = "Deathwing_Taunt";
+        /// <summary>Stone impacts, for the weight of a claw or a boulder landing rather than his voice.</summary>
+        internal const string stoneImpact = "Deathwing_StoneImpact";
 
         /// <summary>How many numbered variants each family of clips ships with.</summary>
         private static readonly Dictionary<string, int> variants = new Dictionary<string, int>
         {
             { roar, 4 },
             { distant, 7 },
-            { flameBreath, 3 }
+            { flameBreath, 3 },
+            { stoneImpact, 7 }
+        };
+
+        /// <summary>
+        /// Per-family gain, applied on top of the caller's level. His roars are recorded far hotter than
+        /// the rest of the pack, so they are held back here rather than at every call site.
+        /// </summary>
+        private static readonly Dictionary<string, float> gains = new Dictionary<string, float>
+        {
+            { roar, 0.6f },
+            { bellowingRoar, 0.6f },
+            { distant, 0.6f },
+            { taunt, 0.6f }
         };
 
         private static readonly Dictionary<string, Sound> sounds = new Dictionary<string, Sound>();
@@ -68,7 +83,8 @@ namespace Deathwing.Modules
                 return null;
             }
 
-            float level = Mathf.Clamp01(volume * Tuning.realModelVoiceVolume.Value);
+            float gain = gains.TryGetValue(name, out float family) ? family : 1f;
+            float level = Mathf.Clamp01(volume * gain * Tuning.realModelVoiceVolume.Value);
             return unityAudio
                 ? PlayThroughUnity(sound, at, level, loop, rolloffDistance)
                 : PlayThroughDevice(sound, at, level, loop, rolloffDistance);

@@ -71,6 +71,7 @@ namespace Deathwing.SkillStates
         private void Erupt()
         {
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 0.9f, false, 100f);
             DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, target, 4f, gameObject);
             ShakeCamera(target, 6f, 0.4f, impactRadius + 40f);
 

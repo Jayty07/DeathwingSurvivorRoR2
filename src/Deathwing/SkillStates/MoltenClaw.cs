@@ -72,11 +72,6 @@ namespace Deathwing.SkillStates
             StartAimMode(2f);
             characterBody.SetAimTimer(duration + 0.5f);
             Util.PlaySound(IsFinisher ? Sounds.clawSlam : Sounds.clawSwing, gameObject);
-            if (IsFinisher)
-            {
-                // Only the finisher roars: a roar on every swipe of a fast combo turns into noise.
-                DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.9f);
-            }
 
             // The real model has a claw swipe per step of the combo. Without it the chassis has no claw
             // animations at all, so the combo is telegraphed through the gestures it does have: the
@@ -126,6 +121,10 @@ namespace Deathwing.SkillStates
                 {
                     hasHit = true;
                     characterBody.AddTimedBuff(Buffs.elementiumPlating, 0.6f);
+                    // The claw lands on stone rather than announcing itself: a roar on every swipe of a
+                    // combo turns into noise.
+                    DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject,
+                        IsFinisher ? 1f : 0.8f, false, 70f);
                 }
             }
 
