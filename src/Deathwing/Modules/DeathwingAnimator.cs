@@ -39,8 +39,13 @@ namespace Deathwing.Modules
     /// </summary>
     public class DeathwingAnimator : MonoBehaviour
     {
-        /// <summary>Speed the walk clip was authored at, in metres per second of the built model.</summary>
-        private const float authoredWalkSpeed = 3f;
+        /// <summary>
+        /// Ground speed the walk clip was authored at, in rig units per second: the source model states
+        /// it on the sequence itself. Multiplied by the model's world scale it gives the metres per
+        /// second his stride actually covers, which is what keeps his feet in step with the ground -
+        /// a fixed figure makes the cycle race at a size the rig was never drawn at.
+        /// </summary>
+        private const float authoredWalkUnits = 270f;
         private const float locomotionFade = 0.2f;
 
         private Animation legacyAnimation;
@@ -165,7 +170,8 @@ namespace Deathwing.Modules
             float groundSpeed = new Vector3(velocity.x, 0f, velocity.z).magnitude;
             if (groundSpeed > 0.6f)
             {
-                speed = Mathf.Clamp(groundSpeed / authoredWalkSpeed, 0.4f, 3f);
+                float stride = authoredWalkUnits * Mathf.Max(transform.lossyScale.x, 1e-5f);
+                speed = Mathf.Clamp(groundSpeed / stride * Tuning.walkCycleSpeed.Value, 0.25f, 3f);
                 return DeathwingClips.walk;
             }
 

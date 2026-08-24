@@ -26,6 +26,15 @@ WANTED = [
 # Clips the mod plays on a loop: their ends are made to meet exactly.
 LOOPING = {'Stand', 'Stand Ready', 'Walk A', 'Spell A', 'Spell H'}
 
+# Standing clips pinned to their first frame everywhere except the parts listed below. The rig's
+# weight-shifting idle walks a foot about 28 units across the ground - a few centimetres on a Heroes
+# of the Storm dragon, over half a metre on one this size - and because his front legs hang off the
+# shoulders, only pinning the legs still leaves the torso's sway dragging them. Everything from the
+# root through the spine and legs is therefore held still, and his head, jaw, wings and tail keep
+# moving, so he breathes without skating.
+PLANTED = {'Stand Ready'}
+PLANTED_MOBILE = ('Neck', 'Head', 'Jaw', 'Tongue', 'Wing', 'Tail', 'Horn', 'Eye')
+
 POS_TOLERANCE = 0.05
 ROT_TOLERANCE = 0.99999
 SCALE_TOLERANCE = 0.002
@@ -302,6 +311,8 @@ def main(mdx_path, diffuse_path, emissive_path, out_path):
             pos = [(t, [rest[i][j] + v[j] for j in range(3)]) for t, v in pos]
             rot = keys_for(b['tracks'].get('KGRT'), seq, [0.0, 0.0, 0.0, 1.0], quat)
             scl = keys_for(b['tracks'].get('KGSC'), seq, [1.0, 1.0, 1.0], scale)
+            if name in PLANTED and not any(part in b['name'] for part in PLANTED_MOBILE):
+                pos, rot, scl = pos[:1], rot[:1], scl[:1]
             if name in LOOPING:
                 pos = close_loop(pos)
             pos = reduce_keys(pos, POS_TOLERANCE)

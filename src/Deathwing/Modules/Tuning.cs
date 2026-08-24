@@ -20,6 +20,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<bool> registerModel;
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
+        internal static ConfigEntry<float> walkCycleSpeed;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
 
@@ -66,6 +67,9 @@ namespace Deathwing.Modules
             realModelLift = config.Bind("Model", "Real Model Lift", 0f,
                 "Extra metres to raise the real model after its feet have been placed on the ground. "
                 + "Negative values sink him.");
+            walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
+                "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
+                + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");
             realModelVoice = config.Bind("Audio", "Custom Voice", true,
                 "Play Deathwing's own roars, flame breath and taunt over the borrowed survivor sounds.");
             realModelVoiceVolume = config.Bind("Audio", "Custom Voice Volume", 1f,
