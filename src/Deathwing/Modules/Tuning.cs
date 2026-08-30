@@ -22,6 +22,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<float> walkCycleSpeed;
+        internal static ConfigEntry<float> extraRowGap;
         internal static ConfigEntry<float> cameraDistance;
         internal static ConfigEntry<float> cameraPivotHeight;
         internal static ConfigEntry<bool> dropPod;
@@ -94,6 +95,9 @@ namespace Deathwing.Modules
                 "Arrive in the survivor drop pod. Off by default: the pod holds him inside its own "
                 + "geometry while it lands, which is where his footing is worked out from, so he can end "
                 + "up stood at the pod's height for the rest of the stage.");
+            extraRowGap = config.Bind("Model", "Extra Skill Row Gap", 0.5f,
+                "How far above the skill bar his Z/X/C/V icons sit, in icon heights. Raise it if their key "
+                + "labels crowd the row below.");
             cameraDistance = config.Bind("Model", "Camera Distance", 0f,
                 "Metres the camera sits behind him. 0 works it out from Real Model Height, which is what "
                 + "keeps him framed when you resize him.");

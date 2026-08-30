@@ -20,9 +20,6 @@ namespace Deathwing.Modules
     /// </summary>
     public class DeathwingHud : MonoBehaviour
     {
-        /// <summary>Gap between the extra row and the skill icons it sits above, in icon heights.</summary>
-        private const float rowGap = 0.15f;
-
         private static bool warned;
 
         private HUD hud;
@@ -185,10 +182,29 @@ namespace Deathwing.Modules
                 root = (RectTransform)cloneRoot,
                 icon = Match(templateRoot, cloneRoot, template.iconImage),
                 cooldownText = Match(templateRoot, cloneRoot, template.cooldownText),
-                keyText = Match(templateRoot, cloneRoot, template.stockText),
+                keyText = null,
                 tooltip = Match(templateRoot, cloneRoot, template.tooltipProvider),
                 readyPanel = Match(templateRoot, cloneRoot, template.isReadyPanelObject)
             };
+
+            // The keybind label under the icon is driven by the game from the slot the template lives in,
+            // so left alone every clone reads as the Special key. Taken over, and its driver removed so it
+            // cannot write over the binding these are actually on.
+            foreach (InputBindingDisplayController binding in
+                clone.GetComponentsInChildren<InputBindingDisplayController>(true))
+            {
+                if (!entry.keyText && binding.guiLabel)
+                {
+                    entry.keyText = binding.guiLabel;
+                }
+
+                Destroy(binding);
+            }
+
+            if (!entry.keyText)
+            {
+                entry.keyText = Match(templateRoot, cloneRoot, template.stockText);
+            }
 
             // The vanilla component would immediately blank everything out: it reads its slot from the
             // skill locator, and these abilities are in no slot. The row is driven by hand instead.
@@ -293,7 +309,7 @@ namespace Deathwing.Modules
             // Above the bar, and to the right of the anchor by a slot for each icon that had no vanilla
             // icon of its own to stand on.
             Vector3 offset = entry.anchor.TransformVector(
-                new Vector3(entry.anchorIndex * width * 1.1f, height * (1f + rowGap), 0f));
+                new Vector3(entry.anchorIndex * width * 1.1f, height * (1f + Tuning.extraRowGap.Value), 0f));
 
             entry.root.position = entry.anchor.position + offset;
         }
