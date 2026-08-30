@@ -156,6 +156,10 @@ namespace Deathwing.Modules
             };
 
             cameraTargetParams.cameraParams = cameraParams;
+            // The game normally raycasts from his feet up to the pivot and drops the pivot to his origin
+            // when anything is in the way. With the pivot metres above him, walking past a mesh puts
+            // geometry in that line constantly and the camera snaps down inside him.
+            cameraTargetParams.dontRaycastToPivot = true;
         }
 
         private static void ConfigureModel(ModelLocator modelLocator)

@@ -19,7 +19,6 @@ namespace Deathwing.SkillStates
         public static float attackEndFraction = 0.55f;
         public static float hitboxRadius = 5.5f;
         public static float hitForce = 900f;
-        public static float selfForwardImpulse = 4f;
 
         /// <summary>The slam is slower and hits harder than the two swipes that set it up.</summary>
         public static int comboLength = 3;
@@ -92,18 +91,19 @@ namespace Deathwing.SkillStates
         {
             base.FixedUpdate();
 
+            // Rooted for the swing: something this heavy should not be swung while walking through it.
+            if (characterMotor && characterMotor.isGrounded)
+            {
+                characterMotor.velocity = new Vector3(0f, characterMotor.velocity.y, 0f);
+                characterMotor.moveDirection = Vector3.zero;
+            }
+
             float progress = fixedAge / duration;
             if (progress >= attackStartFraction && progress <= attackEndFraction)
             {
                 if (!hasFired)
                 {
                     hasFired = true;
-                    if (isAuthority && characterMotor && characterDirection)
-                    {
-                        // Deathwing leans into the swing rather than sliding around freely.
-                        characterMotor.rootMotion += characterDirection.forward * (selfForwardImpulse * GetDeltaTime());
-                    }
-
                     SpawnClawEffect();
                     ShakeCamera(
                         transform.position,
