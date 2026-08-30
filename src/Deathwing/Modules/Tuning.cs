@@ -22,6 +22,8 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<float> walkCycleSpeed;
+        internal static ConfigEntry<float> cameraDistance;
+        internal static ConfigEntry<float> cameraPivotHeight;
         internal static ConfigEntry<bool> dropPod;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
@@ -54,6 +56,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> heroicCataclysmCooldown;
         internal static ConfigEntry<float> bellowingRoarDamageCoefficient;
         internal static ConfigEntry<float> bellowingRoarCooldown;
+        internal static ConfigEntry<float> formSwitchCooldown;
 
         internal static ConfigEntry<KeyboardShortcut> dragonflightKey;
         internal static ConfigEntry<KeyboardShortcut> formSwitchKey;
@@ -91,6 +94,11 @@ namespace Deathwing.Modules
                 "Arrive in the survivor drop pod. Off by default: the pod holds him inside its own "
                 + "geometry while it lands, which is where his footing is worked out from, so he can end "
                 + "up stood at the pod's height for the rest of the stage.");
+            cameraDistance = config.Bind("Model", "Camera Distance", 0f,
+                "Metres the camera sits behind him. 0 works it out from Real Model Height, which is what "
+                + "keeps him framed when you resize him.");
+            cameraPivotHeight = config.Bind("Model", "Camera Pivot Height", 0f,
+                "Metres up his body the camera looks at and orbits. 0 puts it at the middle of his body.");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");
@@ -145,6 +153,8 @@ namespace Deathwing.Modules
             bellowingRoarDamageCoefficient = config.Bind("HotS Skills", "Bellowing Roar Damage", 0.75f,
                 "Damage coefficient of the roar. Its point is the rout, not the damage.");
             bellowingRoarCooldown = config.Bind("HotS Skills", "Bellowing Roar Cooldown", 25f, "Cooldown in seconds.");
+            formSwitchCooldown = config.Bind("HotS Skills", "Form Switch Cooldown", 1f,
+                "Cooldown in seconds on changing form. Only there to stop it being held down.");
 
             // His last three abilities have no slot to live in: Risk of Rain gives a survivor four, and
             // his kit has seven things in it.

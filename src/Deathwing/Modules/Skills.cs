@@ -19,6 +19,19 @@ namespace Deathwing.Modules
 
         internal static SkillDef earthShatter { get; private set; }
 
+        /// <summary>
+        /// The names his off-slot skills are found by at runtime. He has more abilities than Risk of
+        /// Rain 2 has slots, so these four live on <see cref="GenericSkill"/> components of their own,
+        /// outside the four the HUD draws, and are fired from keys by <see cref="DeathwingForms"/>.
+        /// </summary>
+        internal const string dragonflightSkillName = "DeathwingDragonflight";
+
+        internal const string formSwitchSkillName = "DeathwingFormSwitch";
+
+        internal const string cataclysmSkillName = "DeathwingCataclysm";
+
+        internal const string bellowingRoarSkillName = "DeathwingBellowingRoar";
+
         internal static void Init(GameObject bodyPrefab)
         {
             SkillLocator skillLocator = bodyPrefab.GetComponent<SkillLocator>();
@@ -121,12 +134,10 @@ namespace Deathwing.Modules
             charge.interruptPriority = InterruptPriority.PrioritySkill;
             charge.cancelSprintingOnActivation = false;
 
-            // Dragonflight, his heroics and the dive are all cast from keys or from flight rather than
-            // from a slot, so they are registered without a skill def of their own.
-            ContentAddition.AddEntityState<Dragonflight>(out _);
-            ContentAddition.AddEntityState<Cataclysm>(out _);
-            ContentAddition.AddEntityState<BellowingRoar>(out _);
+            // The dive is entered from flight rather than pressed, so it alone needs no skill def.
             ContentAddition.AddEntityState<DiveSlam>(out _);
+
+            SetupExtraSkills(bodyPrefab, specialIcon);
 
             // His Heroes of the Storm kit is the default in every slot; the original Deathwing skills are
             // kept as the second variant so the old kit is still playable from the loadout screen.
@@ -134,6 +145,85 @@ namespace Deathwing.Modules
             AssignFamily(skillLocator, SkillSlot.Secondary, flame, boulder);
             AssignFamily(skillLocator, SkillSlot.Utility, incinerate, charge);
             AssignFamily(skillLocator, SkillSlot.Special, onslaught);
+        }
+
+        /// <summary>
+        /// Builds the four abilities that have no slot to sit in. They are real skills on real
+        /// <see cref="GenericSkill"/> components rather than keys with a stopwatch behind them, so their
+        /// cooldowns are the game's - which means cooldown items reach them, a client sees the same
+        /// cooldown the host does, and the HUD has something to draw.
+        /// </summary>
+        private static void SetupExtraSkills(GameObject bodyPrefab, Sprite fallbackIcon)
+        {
+            SkillDef flight = CreateSkill<Dragonflight>(
+                skillName: dragonflightSkillName,
+                nameToken: Tokens.dragonflightName,
+                descriptionToken: Tokens.dragonflightDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.dragonflight, fallbackIcon));
+            flight.baseRechargeInterval = Tuning.dragonflightCooldown.Value;
+            flight.activationStateMachineName = "Body";
+            flight.interruptPriority = InterruptPriority.PrioritySkill;
+            flight.cancelSprintingOnActivation = false;
+
+            SkillDef form = CreateSkill<SwitchForm>(
+                skillName: formSwitchSkillName,
+                nameToken: Tokens.formSwitchName,
+                descriptionToken: Tokens.formSwitchDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.formSwitch, fallbackIcon));
+            form.baseRechargeInterval = Tuning.formSwitchCooldown.Value;
+            form.activationStateMachineName = "Weapon";
+            form.interruptPriority = InterruptPriority.Any;
+            form.isCombatSkill = false;
+            form.cancelSprintingOnActivation = false;
+
+            SkillDef cataclysm = CreateSkill<Cataclysm>(
+                skillName: cataclysmSkillName,
+                nameToken: Tokens.cataclysmName,
+                descriptionToken: Tokens.cataclysmDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.cataclysm, fallbackIcon));
+            cataclysm.baseRechargeInterval = Tuning.heroicCataclysmCooldown.Value;
+            cataclysm.activationStateMachineName = "Body";
+            cataclysm.interruptPriority = InterruptPriority.PrioritySkill;
+
+            SkillDef roar = CreateSkill<BellowingRoar>(
+                skillName: bellowingRoarSkillName,
+                nameToken: Tokens.bellowingRoarName,
+                descriptionToken: Tokens.bellowingRoarDescription,
+                icon: DeathwingIcons.Get(DeathwingIcons.aspectOfDeath, fallbackIcon));
+            roar.baseRechargeInterval = Tuning.bellowingRoarCooldown.Value;
+            roar.activationStateMachineName = "Body";
+            roar.interruptPriority = InterruptPriority.PrioritySkill;
+
+            AddExtraSkill(bodyPrefab, flight);
+            AddExtraSkill(bodyPrefab, form);
+            AddExtraSkill(bodyPrefab, cataclysm);
+            AddExtraSkill(bodyPrefab, roar);
+        }
+
+        private static void AddExtraSkill(GameObject bodyPrefab, SkillDef skillDef)
+        {
+            SkillFamily family = ScriptableObject.CreateInstance<SkillFamily>();
+            ((ScriptableObject)family).name = $"{skillDef.skillName}Family";
+            family.variants = new[]
+            {
+                new SkillFamily.Variant
+                {
+                    skillDef = skillDef,
+                    unlockableDef = null,
+                    viewableNode = new ViewablesCatalog.Node(skillDef.skillNameToken, false, null)
+                }
+            };
+
+            ContentAddition.AddSkillFamily(family);
+
+            GenericSkill genericSkill = bodyPrefab.AddComponent<GenericSkill>();
+            genericSkill._skillFamily = family;
+            genericSkill.skillName = skillDef.skillName;
+
+            // Kept out of both selection screens: these are not a choice, and a loadout row with one
+            // variant is a row the player can only stare at.
+            genericSkill.hideInCharacterSelect = true;
+            genericSkill.hideInLoadoutSelect = true;
         }
 
         private static void SetupPassive(SkillLocator skillLocator)

@@ -9,8 +9,8 @@ namespace Deathwing.Modules
     /// <summary>
     /// Everything in his Heroes of the Storm kit that Risk of Rain 2 has nowhere to put. He has seven
     /// abilities and a form toggle; a survivor has four slots. His two forms therefore swap what Utility
-    /// and Special do, and the rest - Dragonflight and his two heroics - hang off rebindable keys this
-    /// component drives, with their own cooldowns since they are not in a slot the HUD can track.
+    /// and Special do, and the rest - Dragonflight, the form toggle and his two heroics - live on skills
+    /// of their own outside those slots, which this component fires from rebindable keys.
     /// </summary>
     public class DeathwingForms : MonoBehaviour
     {
@@ -23,30 +23,79 @@ namespace Deathwing.Modules
         private CharacterBody body;
         private SkillLocator skills;
         private AspectOfDeath aspect;
-        private EntityStateMachine bodyStateMachine;
 
         private Form form = Form.Destroyer;
-        private float dragonflightCooldown;
-        private float cataclysmCooldown;
-        private float roarCooldown;
 
         /// <summary>Which form he is in, read by the skills that behave differently in each.</summary>
         internal Form currentForm => form;
+
+        /// <summary>His off-slot skills, in the order the extra HUD row draws them.</summary>
+        internal GenericSkill dragonflightSkill { get; private set; }
+
+        internal GenericSkill formSwitchSkill { get; private set; }
+
+        internal GenericSkill cataclysmSkill { get; private set; }
+
+        internal GenericSkill bellowingRoarSkill { get; private set; }
+
+        /// <summary>Seconds left of the post-damage bar on Dragonflight, 0 when he is free to fly.</summary>
+        internal float flightLockoutRemaining =>
+            body ? Mathf.Max(0f, Tuning.dragonflightCombatLockout.Value - body.outOfDangerStopwatch) : 0f;
 
         private void Awake()
         {
             body = GetComponent<CharacterBody>();
             skills = GetComponent<SkillLocator>();
             aspect = GetComponent<AspectOfDeath>();
-            bodyStateMachine = EntityStateMachine.FindByCustomName(gameObject, "Body");
+
+            foreach (GenericSkill skill in GetComponents<GenericSkill>())
+            {
+                switch (skill.skillName)
+                {
+                    case Skills.dragonflightSkillName:
+                        dragonflightSkill = skill;
+                        break;
+                    case Skills.formSwitchSkillName:
+                        formSwitchSkill = skill;
+                        break;
+                    case Skills.cataclysmSkillName:
+                        cataclysmSkill = skill;
+                        break;
+                    case Skills.bellowingRoarSkillName:
+                        bellowingRoarSkill = skill;
+                        break;
+                }
+            }
         }
 
+        /// <summary>
+        /// The game only hands its cooldown reduction to the four slots it knows about, so his off-slot
+        /// skills are given the same figures his Special is running with. Without this, Alien Head and
+        /// friends would quietly do nothing for his heroics.
+        /// </summary>
         private void FixedUpdate()
         {
-            float delta = Time.fixedDeltaTime;
-            dragonflightCooldown = Mathf.Max(0f, dragonflightCooldown - delta);
-            cataclysmCooldown = Mathf.Max(0f, cataclysmCooldown - delta);
-            roarCooldown = Mathf.Max(0f, roarCooldown - delta);
+            GenericSkill reference = skills ? skills.special : null;
+            if (!reference)
+            {
+                return;
+            }
+
+            MatchCooldownStats(dragonflightSkill, reference);
+            MatchCooldownStats(formSwitchSkill, reference);
+            MatchCooldownStats(cataclysmSkill, reference);
+            MatchCooldownStats(bellowingRoarSkill, reference);
+        }
+
+        private static void MatchCooldownStats(GenericSkill skill, GenericSkill reference)
+        {
+            if (!skill)
+            {
+                return;
+            }
+
+            skill.cooldownScale = reference.cooldownScale;
+            skill.flatCooldownReduction = reference.flatCooldownReduction;
         }
 
         private void Update()
@@ -57,33 +106,24 @@ namespace Deathwing.Modules
                 return;
             }
 
-            if (Tuning.formSwitchKey.Value.IsDown())
+            if (Tuning.formSwitchKey.Value.IsDown() && formSwitchSkill)
             {
-                SetForm(form == Form.Destroyer ? Form.WorldBreaker : Form.Destroyer);
+                formSwitchSkill.ExecuteIfReady();
             }
 
-            if (Tuning.dragonflightKey.Value.IsDown() && dragonflightCooldown <= 0f && CanFly())
+            if (Tuning.dragonflightKey.Value.IsDown() && dragonflightSkill && CanFly())
             {
-                if (Cast(new Dragonflight()))
-                {
-                    dragonflightCooldown = Tuning.dragonflightCooldown.Value;
-                }
+                dragonflightSkill.ExecuteIfReady();
             }
 
-            if (Tuning.heroicCataclysmKey.Value.IsDown() && cataclysmCooldown <= 0f)
+            if (Tuning.heroicCataclysmKey.Value.IsDown() && cataclysmSkill)
             {
-                if (Cast(new Cataclysm()))
-                {
-                    cataclysmCooldown = Tuning.heroicCataclysmCooldown.Value;
-                }
+                cataclysmSkill.ExecuteIfReady();
             }
 
-            if (Tuning.bellowingRoarKey.Value.IsDown() && roarCooldown <= 0f)
+            if (Tuning.bellowingRoarKey.Value.IsDown() && bellowingRoarSkill)
             {
-                if (Cast(new BellowingRoar()))
-                {
-                    roarCooldown = Tuning.bellowingRoarCooldown.Value;
-                }
+                bellowingRoarSkill.ExecuteIfReady();
             }
         }
 
@@ -91,19 +131,15 @@ namespace Deathwing.Modules
         /// Dragonflight is barred for a few seconds after he is hurt, as it is in Heroes of the Storm:
         /// it is an escape he has to earn a moment of peace for, not one he can press under fire.
         /// </summary>
-        private bool CanFly()
+        internal bool CanFly()
         {
-            return body.outOfDangerStopwatch >= Tuning.dragonflightCombatLockout.Value;
+            return body && body.outOfDangerStopwatch >= Tuning.dragonflightCombatLockout.Value;
         }
 
-        private bool Cast(EntityState state)
+        /// <summary>Flips to his other form. Driven by the form switch skill so it shares its cooldown.</summary>
+        internal void Toggle()
         {
-            if (!bodyStateMachine)
-            {
-                return false;
-            }
-
-            return bodyStateMachine.SetInterruptState(state, InterruptPriority.PrioritySkill);
+            SetForm(form == Form.Destroyer ? Form.WorldBreaker : Form.Destroyer);
         }
 
         /// <summary>

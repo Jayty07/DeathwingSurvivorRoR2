@@ -31,6 +31,7 @@ namespace Deathwing
             Buffs.Init();
             Projectiles.Init();
             DeathwingSurvivor.Init();
+            DeathwingHud.Init();
 
             Log.Info($"{pluginName} {pluginVersion} loaded.");
         }

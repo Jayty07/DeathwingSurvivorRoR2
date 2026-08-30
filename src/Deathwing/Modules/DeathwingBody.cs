@@ -130,18 +130,28 @@ namespace Deathwing.Modules
             }
 
             // A character this large needs the camera pulled back and raised, otherwise he fills the
-            // screen and hides his own attacks.
+            // screen and hides his own attacks. The framing is worked out from the height he is actually
+            // built at, so resizing him in the config reframes him too, and each figure can be pinned by
+            // hand if the player wants him closer or further out.
+            float height = Tuning.useRealModel.Value && Tuning.realModelHeight.Value > 0f
+                ? Tuning.realModelHeight.Value
+                : 3f * Tuning.modelScale.Value;
+
+            float distance = Tuning.cameraDistance.Value > 0f ? Tuning.cameraDistance.Value : height * 1.8f;
+            float pivot = Tuning.cameraPivotHeight.Value > 0f ? Tuning.cameraPivotHeight.Value : height * 0.5f;
+
             CharacterCameraParams cameraParams = ScriptableObject.CreateInstance<CharacterCameraParams>();
             cameraParams.name = "ccpDeathwing";
             cameraParams.data = cameraTargetParams.cameraParams ? cameraTargetParams.cameraParams.data : CharacterCameraParamsData.basic;
             cameraParams.data.idealLocalCameraPos = new HG.BlendableTypes.BlendableVector3
             {
-                value = new Vector3(0f, 3.2f, -16f),
+                value = new Vector3(0f, height * 0.25f, -distance),
                 alpha = 1f
             };
+            // Raised to the middle of his body, so he sits in the frame rather than towering out of it.
             cameraParams.data.pivotVerticalOffset = new HG.BlendableTypes.BlendableFloat
             {
-                value = 2.2f,
+                value = pivot,
                 alpha = 1f
             };
 

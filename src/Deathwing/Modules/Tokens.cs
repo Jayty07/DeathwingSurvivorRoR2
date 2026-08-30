@@ -33,6 +33,14 @@ namespace Deathwing.Modules
         internal const string boulderDescription = prefix + "BOULDER_DESCRIPTION";
         internal const string chargeName = prefix + "CHARGE_NAME";
         internal const string chargeDescription = prefix + "CHARGE_DESCRIPTION";
+        internal const string dragonflightName = prefix + "DRAGONFLIGHT_NAME";
+        internal const string dragonflightDescription = prefix + "DRAGONFLIGHT_DESCRIPTION";
+        internal const string formSwitchName = prefix + "FORMSWITCH_NAME";
+        internal const string formSwitchDescription = prefix + "FORMSWITCH_DESCRIPTION";
+        internal const string cataclysmName = prefix + "CATACLYSM_NAME";
+        internal const string cataclysmDescription = prefix + "CATACLYSM_DESCRIPTION";
+        internal const string bellowingRoarName = prefix + "BELLOWINGROAR_NAME";
+        internal const string bellowingRoarDescription = prefix + "BELLOWINGROAR_DESCRIPTION";
         internal const string buffElementiumName = prefix + "BUFF_ELEMENTIUM_NAME";
 
         internal static void Init()
@@ -97,6 +105,27 @@ namespace Deathwing.Modules
             LanguageAPI.Add(chargeName, "Elementium Charge");
             LanguageAPI.Add(chargeDescription,
                 $"<style=cIsUtility>Armored.</style> Charge forward, trampling enemies for <style=cIsDamage>{Tuning.chargeDamageCoefficient.Value * 100f:0}% damage</style> and launching them away.");
+
+            LanguageAPI.Add(dragonflightName, "Dragonflight");
+            LanguageAPI.Add(dragonflightDescription,
+                $"Take <style=cIsUtility>{Dragonflight.takeoffDuration:0.#}s</style> to take off, then fly freely, " +
+                "<style=cIsHealing>immune to all damage</style>, <style=cIsHealing>healing</style> and " +
+                "<style=cIsHealing>rebuilding your plates</style> as you go. <style=cIsHealth>Cannot be cast shortly after taking damage.</style>");
+
+            LanguageAPI.Add(formSwitchName, "Change Form");
+            LanguageAPI.Add(formSwitchDescription,
+                "Switch between <style=cIsUtility>Destroyer</style> - Incinerate and Onslaught, up close - and " +
+                "<style=cIsUtility>World Breaker</style> - Lava Burst and Earth Shatter, at range.");
+
+            LanguageAPI.Add(cataclysmName, "Cataclysm");
+            LanguageAPI.Add(cataclysmDescription,
+                $"<style=cIsDamage>Heroic. Ignite.</style> Tear the ground open around you in rings, each dealing " +
+                $"<style=cIsDamage>{Tuning.heroicCataclysmDamageCoefficient.Value * 100f:0}% damage</style>. Roots Deathwing while it erupts.");
+
+            LanguageAPI.Add(bellowingRoarName, "Bellowing Roar");
+            LanguageAPI.Add(bellowingRoarDescription,
+                "<style=cIsDamage>Heroic.</style> Bellow, <style=cIsUtility>routing</style> everything around you and " +
+                "<style=cIsDamage>igniting</style> it. Roots Deathwing while he roars.");
 
             LanguageAPI.Add(buffElementiumName, "Elementium Plating");
         }
