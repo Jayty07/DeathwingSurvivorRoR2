@@ -28,7 +28,10 @@ namespace Deathwing.Modules
         /// </summary>
         private const float boneSpanShare = 0.85f;
 
-        /// <summary>How long after spawning his footing keeps being corrected.</summary>
+        /// <summary>
+        /// How long after spawning his footing is corrected even without a reading from the world, so a
+        /// stage whose surface the cast misses still leaves him standing somewhere sane.
+        /// </summary>
         private const float alignDuration = 2.5f;
 
         /// <summary>How far above and below him the surface he stands on is looked for.</summary>
@@ -250,26 +253,30 @@ namespace Deathwing.Modules
                 rest = root.localPosition;
             }
 
-            if (age > alignDuration)
+            // Corrected for as long as he is stood on something, not only just after spawning: what he
+            // is stood on changes as he walks, and a one-off correction taken while he is being carried
+            // by anything else - a drop pod on the first stage, a lift, a jump - is held for the rest of
+            // the run. Off the ground he is only held where he was, since there is nothing to read.
+            bool grounded = !body.characterMotor || body.characterMotor.isGrounded;
+            if (!grounded || !Drawn(out float bottom))
             {
-                // Held where the correction settled, because an animation clip or the skin system
-                // moving the model root sinks him again and does so silently.
                 Place(root);
                 return;
             }
 
-            if (!Drawn(out float bottom))
+            if (!Ground(body, out float ground, out string from) && age > alignDuration)
             {
+                Place(root);
                 return;
             }
-
-            float ground = Ground(body, out string from);
 
             float delta = ground + Tuning.realModelLift.Value - bottom;
             rise += delta;
             Place(root);
 
-            if (Time.time > logged + 0.75f)
+            // Only reported while he is settling, and afterwards only if something moved him a long way:
+            // the correction now runs for the whole run, and logging it every frame would drown the log.
+            if (Time.time > logged + 0.75f && (age < alignDuration || Mathf.Abs(delta) > 0.5f))
             {
                 logged = Time.time;
                 Log.Info($"Raised the model {rise:0.###}m onto the ground read from {from} (his drawn "
@@ -299,14 +306,15 @@ namespace Deathwing.Modules
         /// world, because everything the hierarchy offers as a ground - his foot position, the chassis
         /// mesh's own bottom - has turned out to sit below the surface that is actually drawn.
         /// </summary>
-        private float Ground(CharacterBody body, out string from)
+        private bool Ground(CharacterBody body, out float height, out string from)
         {
             Vector3 above = body.corePosition + Vector3.up * groundProbeRise;
             if (Physics.Raycast(above, Vector3.down, out RaycastHit hit,
                 groundProbeRise + groundProbeDrop, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
             {
                 from = "the surface under him";
-                return hit.point.y;
+                height = hit.point.y;
+                return true;
             }
 
             float bottom = float.MaxValue;
@@ -321,11 +329,13 @@ namespace Deathwing.Modules
             if (bottom < float.MaxValue)
             {
                 from = "the chassis mesh";
-                return bottom;
+                height = bottom;
+                return false;
             }
 
             from = "his foot position";
-            return body.footPosition.y;
+            height = body.footPosition.y;
+            return false;
         }
 
         /// <summary>Scales the model so his silhouette stands the configured number of metres tall.</summary>

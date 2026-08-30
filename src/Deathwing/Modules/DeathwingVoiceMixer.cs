@@ -7,12 +7,12 @@ namespace Deathwing.Modules
     /// <summary>
     /// Does the job the engine's audio system would have done for the voices played through the OS
     /// device: attenuates them by how far away the dragon is, pans them by which side of the screen he
-    /// is on, and closes each device when its clip has finished.
+    /// is on, and drops each one when its clip has finished.
     /// </summary>
     public class DeathwingVoiceMixer : MonoBehaviour
     {
-        /// <summary>How many OS output devices the mod will hold open at once.</summary>
-        private const int maxVoices = 8;
+        /// <summary>How many of his sounds may overlap.</summary>
+        private const int maxVoices = 16;
 
         private static readonly List<DeathwingVoice.Voice> playing = new List<DeathwingVoice.Voice>();
 
@@ -29,11 +29,13 @@ namespace Deathwing.Modules
                 instance = host.AddComponent<DeathwingVoiceMixer>();
             }
 
-            // Each voice holds an output device open, so the oldest one gives way rather than letting
-            // a long fight leave the game with no devices left to play anything.
+            // The oldest one-shot gives way rather than letting a long fight pile his voice up over
+            // itself; a looping voice is a sound being held down, so it is only dropped if that is all
+            // there is.
             while (playing.Count >= maxVoices)
             {
-                Remove(playing[0]);
+                int index = playing.FindIndex(other => !other.loop);
+                Remove(playing[index < 0 ? 0 : index]);
             }
 
             playing.Add(voice);
@@ -49,6 +51,13 @@ namespace Deathwing.Modules
 
             voice.wave?.Stop();
             playing.Remove(voice);
+        }
+
+        private void OnApplicationQuit()
+        {
+            // The output device is fed by a background thread, which has to be told to stop before the
+            // process tears the unmanaged buffers out from under it.
+            WaveOutput.Shutdown();
         }
 
         private void Update()

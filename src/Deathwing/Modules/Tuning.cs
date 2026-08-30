@@ -22,6 +22,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<float> walkCycleSpeed;
+        internal static ConfigEntry<bool> dropPod;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
 
@@ -86,6 +87,10 @@ namespace Deathwing.Modules
             realModelLift = config.Bind("Model", "Real Model Lift", 0f,
                 "Extra metres to raise the real model after its feet have been placed on the ground. "
                 + "Negative values sink him.");
+            dropPod = config.Bind("Model", "Drop Pod", false,
+                "Arrive in the survivor drop pod. Off by default: the pod holds him inside its own "
+                + "geometry while it lands, which is where his footing is worked out from, so he can end "
+                + "up stood at the pod's height for the rest of the stage.");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");

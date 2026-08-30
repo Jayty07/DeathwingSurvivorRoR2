@@ -89,6 +89,13 @@ namespace Deathwing.Modules
             // A golem hull keeps spawn pods, pathing and hull-sized interactions honest about his size.
             body.hullClassification = HullClassification.Golem;
             body.bodyFlags |= CharacterBody.BodyFlags.IgnoreFallDamage;
+
+            if (!Tuning.dropPod.Value)
+            {
+                // Without a pod the game places him straight on the stage, which is what his footing is
+                // read from; inside the pod there is nothing under him but the pod itself.
+                body.preferredPodPrefab = null;
+            }
         }
 
         private static void ConfigureMotor(GameObject prefab)
