@@ -20,11 +20,17 @@ namespace Deathwing.Modules
     /// </summary>
     public class DeathwingHud : MonoBehaviour
     {
+        private static readonly Color plateColor = new Color(1f, 0.5f, 0.18f, 0.9f);
+        private static readonly Color plateWornColor = new Color(1f, 0.28f, 0.12f, 0.9f);
+
         private static bool warned;
 
         private HUD hud;
         private DeathwingForms forms;
+        private AspectOfDeath aspect;
         private Entry[] entries;
+        private Image[] plates;
+        private RectTransform plateRow;
         private bool failed;
 
         internal static void Init()
@@ -60,6 +66,7 @@ namespace Deathwing.Modules
             {
                 Teardown();
                 forms = targetForms;
+                aspect = target ? target.GetComponent<AspectOfDeath>() : null;
             }
 
             if (!forms)
@@ -78,6 +85,8 @@ namespace Deathwing.Modules
                 Place(entry);
                 Refresh(entry);
             }
+
+            RefreshPlates();
         }
 
         private void OnDestroy()
@@ -87,6 +96,14 @@ namespace Deathwing.Modules
 
         private void Teardown()
         {
+            if (plateRow)
+            {
+                Destroy(plateRow.gameObject);
+            }
+
+            plateRow = null;
+            plates = null;
+
             if (entries == null)
             {
                 return;
@@ -130,7 +147,99 @@ namespace Deathwing.Modules
                 entries[i].anchorIndex = anchor ? 0 : i;
             }
 
+            BuildPlates();
+
             return true;
+        }
+
+        /// <summary>
+        /// His plates as a row of pips over the health bar. The plate he is closest to losing empties as
+        /// he takes damage, so the trait reads as a second health bar rather than as a number that
+        /// silently drops.
+        /// </summary>
+        private void BuildPlates()
+        {
+            RectTransform bar = HealthBar();
+            if (!aspect || !bar || !bar.parent)
+            {
+                return;
+            }
+
+            plateRow = (RectTransform)new GameObject("DeathwingPlates", typeof(RectTransform)).transform;
+            plateRow.SetParent(bar.parent, false);
+
+            plates = new Image[AspectOfDeath.maxPlates];
+            for (int i = 0; i < plates.Length; i++)
+            {
+                RectTransform pip = (RectTransform)new GameObject($"Plate{i}", typeof(RectTransform), typeof(Image)).transform;
+                pip.SetParent(plateRow, false);
+                pip.pivot = Vector2.zero;
+                pip.anchorMin = Vector2.zero;
+                pip.anchorMax = Vector2.zero;
+
+                Image backdrop = pip.GetComponent<Image>();
+                backdrop.color = new Color(0.07f, 0.05f, 0.05f, 0.75f);
+                backdrop.raycastTarget = false;
+
+                RectTransform fillRect = (RectTransform)new GameObject("Fill", typeof(RectTransform), typeof(Image)).transform;
+                fillRect.SetParent(pip, false);
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = Vector2.one;
+                fillRect.offsetMin = Vector2.zero;
+                fillRect.offsetMax = Vector2.zero;
+
+                Image fill = fillRect.GetComponent<Image>();
+                fill.color = plateColor;
+                fill.raycastTarget = false;
+                fill.type = Image.Type.Filled;
+                fill.fillMethod = Image.FillMethod.Horizontal;
+                fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+
+                plates[i] = fill;
+            }
+        }
+
+        private RectTransform HealthBar()
+        {
+            HealthBar bar = hud.healthBar;
+            return bar ? (RectTransform)bar.transform : null;
+        }
+
+        private void RefreshPlates()
+        {
+            RectTransform bar = HealthBar();
+            if (plates == null || !aspect || !bar)
+            {
+                return;
+            }
+
+            Rect rect = bar.rect;
+            float gap = rect.width * 0.008f;
+            float width = (rect.width - gap * (plates.Length - 1)) / plates.Length;
+            float height = Mathf.Max(2f, rect.height * 0.22f);
+            Vector3 topLeft = bar.TransformPoint(new Vector3(rect.xMin, rect.yMax, 0f));
+            int remaining = aspect.platesRemaining;
+            float wear = aspect.plateWear;
+
+            for (int i = 0; i < plates.Length; i++)
+            {
+                Image fill = plates[i];
+                if (!fill)
+                {
+                    continue;
+                }
+
+                RectTransform pip = (RectTransform)fill.transform.parent;
+                pip.sizeDelta = new Vector2(width, height);
+                ((RectTransform)fill.transform).sizeDelta = Vector2.zero;
+                pip.position = topLeft + bar.TransformVector(new Vector3(i * (width + gap), height * 0.6f, 0f));
+
+                // Plates are shed from the right, so the leftmost is the last one standing.
+                bool intact = i < remaining - 1;
+                bool wearing = i == remaining - 1;
+                fill.fillAmount = intact ? 1f : wearing ? 1f - wear : 0f;
+                fill.color = wearing && wear > 0.75f ? plateWornColor : plateColor;
+            }
         }
 
         private SkillIcon Template()

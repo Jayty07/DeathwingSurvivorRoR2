@@ -23,6 +23,21 @@ namespace Deathwing.Modules
 
         internal int platesRemaining => plates;
 
+        /// <summary>How far the damage he has taken has eaten into the plate he is about to lose, 0 to 1.</summary>
+        internal float plateWear
+        {
+            get
+            {
+                if (plates <= 0 || !health || health.fullCombinedHealth <= 0f)
+                {
+                    return 0f;
+                }
+
+                float perPlate = health.fullCombinedHealth / maxPlates;
+                return Mathf.Clamp01(damageTaken % perPlate / perPlate);
+            }
+        }
+
         private void Awake()
         {
             body = GetComponent<CharacterBody>();
