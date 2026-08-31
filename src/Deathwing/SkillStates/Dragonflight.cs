@@ -1,6 +1,7 @@
 using Deathwing.Modules;
 using EntityStates;
 using RoR2;
+using RoR2.Projectile;
 using UnityEngine;
 
 namespace Deathwing.SkillStates
@@ -22,9 +23,11 @@ namespace Deathwing.SkillStates
         public static float hoverDrift = -0.6f;
         /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
         public static float landDelay = 0.5f;
+        public static float fireballSpeed = 90f;
 
         private float maxDuration;
         private float healStopwatch;
+        private float fireStopwatch;
         private bool airborne;
         private bool wantsToDive;
         private bool wantsToLand;
@@ -51,7 +54,7 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(maxDuration);
             Util.PlaySound(Sounds.wingFlap, gameObject);
             DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.9f);
-            PlayDragonAnimation(DeathwingClips.flightStart, takeoffDuration, "Body", "Jump");
+            PlayDragonAnimation(DeathwingClips.takeoff, takeoffDuration, "Body", "Jump");
             DeathwingAssets.SpawnEffect(
                 DeathwingAssets.roarEffect, transform.position, 1.6f * characterScale, gameObject);
         }
@@ -87,11 +90,22 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            if (inputBank && inputBank.skill1.justPressed && airborne)
+            if (airborne && inputBank)
             {
-                wantsToDive = true;
+                // M1 rains fire on what he is looking at, as it does in Heroes of the Storm; the dive is
+                // on M2 so holding fire cannot slam him into the ground by accident.
+                if (inputBank.skill1.down)
+                {
+                    Breathe();
+                }
+
+                if (inputBank.skill2.justPressed)
+                {
+                    wantsToDive = true;
+                }
             }
-            else if (fixedAge > takeoffDuration + landDelay && Tuning.dragonflightKey.Value.IsDown())
+
+            if (!wantsToDive && fixedAge > takeoffDuration + landDelay && Tuning.dragonflightKey.Value.IsDown())
             {
                 wantsToLand = true;
             }
@@ -106,6 +120,53 @@ namespace Deathwing.SkillStates
             {
                 outer.SetNextStateToMain();
             }
+        }
+
+        /// <summary>
+        /// Spits a fireball down at what he is aiming at, no faster than his own breath allows. It is
+        /// aimed at the surface under the cursor rather than straight down, so he can lead a target he
+        /// is flying over instead of only bombing what is directly beneath him.
+        /// </summary>
+        private void Breathe()
+        {
+            fireStopwatch += GetDeltaTime();
+            if (fireStopwatch < Tuning.dragonFireInterval.Value)
+            {
+                return;
+            }
+
+            fireStopwatch = 0f;
+            characterBody.SetAimTimer(1f);
+
+            Ray aimRay = GetAimRay();
+            Vector3 origin = aimRay.origin + aimRay.direction * (2.5f * characterScale);
+            Vector3 target = Physics.Raycast(aimRay, out RaycastHit hit, 400f,
+                LayerIndex.world.mask | LayerIndex.entityPrecise.mask)
+                ? hit.point
+                : aimRay.GetPoint(200f);
+            Vector3 direction = (target - origin).normalized;
+
+            DeathwingVoice.Play(DeathwingVoice.flameBreath, gameObject, 0.5f);
+
+            if (Projectiles.dragonFire)
+            {
+                ProjectileManager.instance.FireProjectile(
+                    Projectiles.dragonFire,
+                    origin,
+                    Quaternion.LookRotation(direction),
+                    gameObject,
+                    damageStat * Tuning.dragonFireDamageCoefficient.Value,
+                    900f,
+                    RollCrit(),
+                    DamageColorIndex.Item,
+                    null,
+                    fireballSpeed);
+                return;
+            }
+
+            // Without the borrowed projectile the fireball still has to land somewhere.
+            CreateFireBlast(target, 9f, Tuning.dragonFireDamageCoefficient.Value, 900f).Fire();
+            SpawnFireEffect(target, 4f);
         }
 
         /// <summary>Closes his wounds a fraction of his maximum health at a time while he is up.</summary>

@@ -16,6 +16,7 @@ namespace Deathwing.Modules
     {
         internal static GameObject moltenBoulder;
         internal static GameObject lavaPool;
+        internal static GameObject dragonFire;
 
         internal const float lavaPoolLifetime = 6f;
         internal const float lavaPoolDamageCoefficient = 0.4f;
@@ -25,6 +26,7 @@ namespace Deathwing.Modules
         {
             lavaPool = CreateLavaPool();
             moltenBoulder = CreateMoltenBoulder();
+            dragonFire = CreateDragonFire();
         }
 
         /// <summary>
@@ -37,6 +39,24 @@ namespace Deathwing.Modules
             {
                 GameObject candidate = DeathwingAssets.Load<GameObject>(address);
                 if (candidate && candidate.GetComponent<ProjectileDotZone>())
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// First address that both resolves and explodes on impact, so a projectile that only pokes a
+        /// single target is skipped rather than producing a fireball that does not burst.
+        /// </summary>
+        private static GameObject FindExplosionSource(params string[] addresses)
+        {
+            foreach (string address in addresses)
+            {
+                GameObject candidate = DeathwingAssets.Load<GameObject>(address);
+                if (candidate && candidate.GetComponent<ProjectileImpactExplosion>())
                 {
                     return candidate;
                 }
@@ -128,6 +148,61 @@ namespace Deathwing.Modules
                 ReplaceGhost(prefab, "DeathwingLavaPoolGhost", discard: false);
             }
 
+            ContentAddition.AddProjectile(prefab);
+            return prefab;
+        }
+
+        /// <summary>
+        /// The fireballs he spits down while flying: the mage's firebolt, which already flies fast and
+        /// straight and bursts into flame, rather than the boulder's heavy arc.
+        /// </summary>
+        private static GameObject CreateDragonFire()
+        {
+            GameObject source = FindExplosionSource(
+                "RoR2/Base/Mage/MageFireboltBasic.prefab",
+                "RoR2/Base/Titan/TitanRockProjectile.prefab",
+                "RoR2/Base/Engi/EngiGrenadeProjectile.prefab",
+                "RoR2/Base/Commando/CommandoGrenadeProjectile.prefab");
+            if (!source)
+            {
+                Log.Warning("No fireball base projectile found; his flight will spit point blasts instead.");
+                return null;
+            }
+
+            GameObject prefab = PrefabAPI.InstantiateClone(source, "DeathwingDragonFire");
+            prefab.transform.localScale *= 2.6f;
+
+            if (prefab.TryGetComponent(out ProjectileImpactExplosion impactExplosion))
+            {
+                impactExplosion.blastRadius = 9f;
+                impactExplosion.blastDamageCoefficient = 1f;
+                impactExplosion.destroyOnEnemy = true;
+                impactExplosion.destroyOnWorld = true;
+                impactExplosion.impactOnWorld = true;
+                impactExplosion.timerAfterImpact = false;
+                impactExplosion.lifetime = 6f;
+                impactExplosion.falloffModel = BlastAttack.FalloffModel.None;
+
+                if (DeathwingAssets.explosionEffect)
+                {
+                    impactExplosion.explosionEffect = DeathwingAssets.explosionEffect;
+                }
+
+                if (DeathwingAssets.fireImpactEffect)
+                {
+                    impactExplosion.impactEffect = DeathwingAssets.fireImpactEffect;
+                }
+            }
+
+            if (prefab.TryGetComponent(out ProjectileDamage damage))
+            {
+                damage.damageType = DamageType.IgniteOnHit;
+                damage.damageColorIndex = DamageColorIndex.Item;
+                damage.force = 900f;
+            }
+
+            DeathwingAssets.Recolor(prefab);
+            ReplaceGhost(prefab, "DeathwingDragonFireGhost", discard: false);
             ContentAddition.AddProjectile(prefab);
             return prefab;
         }

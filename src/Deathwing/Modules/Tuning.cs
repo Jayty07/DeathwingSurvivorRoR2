@@ -53,6 +53,8 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> dragonflightDuration;
         internal static ConfigEntry<float> dragonflightHealFraction;
         internal static ConfigEntry<float> dragonflightCombatLockout;
+        internal static ConfigEntry<float> dragonFireDamageCoefficient;
+        internal static ConfigEntry<float> dragonFireInterval;
         internal static ConfigEntry<float> heroicCataclysmDamageCoefficient;
         internal static ConfigEntry<float> heroicCataclysmCooldown;
         internal static ConfigEntry<float> bellowingRoarDamageCoefficient;
@@ -150,6 +152,10 @@ namespace Deathwing.Modules
                 "Fraction of his maximum health healed per second while flying.");
             dragonflightCombatLockout = config.Bind("HotS Skills", "Dragonflight Combat Lockout", 6f,
                 "Seconds after taking damage or using a skill before Dragonflight can be cast.");
+            dragonFireDamageCoefficient = config.Bind("HotS Skills", "Dragon Fire Damage", 2.2f,
+                "Damage coefficient of each fireball he spits down while flying.");
+            dragonFireInterval = config.Bind("HotS Skills", "Dragon Fire Interval", 0.45f,
+                "Seconds between those fireballs.");
             heroicCataclysmDamageCoefficient = config.Bind("HotS Skills", "Heroic Cataclysm Damage", 2.7f,
                 "Damage coefficient of the impact. The scorched ground burns for a fraction of this per second.");
             heroicCataclysmCooldown = config.Bind("HotS Skills", "Heroic Cataclysm Cooldown", 30f,

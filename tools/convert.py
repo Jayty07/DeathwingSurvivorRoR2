@@ -19,21 +19,22 @@ WANTED = [
     'Spell A Start', 'Spell A', 'Spell A End',
     'Spell B', 'Spell C Start', 'Spell C', 'Spell D',
     'Spell H Start', 'Spell H', 'Spell H End',
-    'Spell I', 'Spell J', 'Spell Z End',
+    'Spell I', 'Spell J',
+    'Spell Z Start', 'Spell Z', 'Spell Z End',
     'Death', 'Taunt',
 ]
 
-# Clips the mod plays on a loop: their ends are made to meet exactly.
-LOOPING = {'Stand', 'Stand Ready', 'Walk A', 'Spell A', 'Spell H'}
-
-# Standing clips pinned to their first frame everywhere except the parts listed below. The rig's
-# weight-shifting idle walks a foot about 28 units across the ground - a few centimetres on a Heroes
-# of the Storm dragon, over half a metre on one this size - and because his front legs hang off the
-# shoulders, only pinning the legs still leaves the torso's sway dragging them. Everything from the
-# root through the spine and legs is therefore held still, and his head, jaw, wings and tail keep
-# moving, so he breathes without skating.
-PLANTED = {'Stand Ready'}
-PLANTED_MOBILE = ('Neck', 'Head', 'Jaw', 'Tongue', 'Wing', 'Tail', 'Horn', 'Eye')
+# Clips are converted as authored - the rig's own motion is what the animator drew, and editing it
+# reads as a stiffer, subtly wrong dragon - with one exception: on the clips below, the root bone's
+# travel is held at its first frame. Those are the ones the game itself moves him through (walking,
+# flying, diving, channelling in place), and the rig also travels during them: the flight loop lifts
+# the root some 350 units and then snaps back when it repeats, and Dragonflight's takeoff carries him
+# clean off the map. Holding the root leaves every joint's animation intact and lets the game's own
+# movement provide the travel.
+ROOT_HELD = {
+    'Stand', 'Stand Ready', 'Walk A', 'Walk A Start', 'Spell A', 'Spell B',
+    'Spell H Start', 'Spell H', 'Spell H End', 'Spell Z Start', 'Spell Z', 'Spell Z End',
+}
 
 POS_TOLERANCE = 0.05
 ROT_TOLERANCE = 0.99999
@@ -132,24 +133,6 @@ def keys_for(track, seq, default, converter):
     out = []
     for f in sorted(frames):
         out.append(((f - start) / 1000.0, converter(sample(inside, f, default))))
-    return out
-
-
-def close_loop(keys):
-    """Spread a looping track's start-to-end drift over the clip so its ends meet."""
-    if len(keys) < 2:
-        return keys
-    duration = keys[-1][0] - keys[0][0]
-    if duration <= 0:
-        return keys
-    first, last = keys[0][1], keys[-1][1]
-    drift = [b - a for a, b in zip(first, last)]
-    if max(abs(d) for d in drift) < 1e-5:
-        return keys
-    out = []
-    for t, v in keys:
-        u = (t - keys[0][0]) / duration
-        out.append((t, [c - d * u for c, d in zip(v, drift)]))
     return out
 
 
@@ -311,10 +294,8 @@ def main(mdx_path, diffuse_path, emissive_path, out_path):
             pos = [(t, [rest[i][j] + v[j] for j in range(3)]) for t, v in pos]
             rot = keys_for(b['tracks'].get('KGRT'), seq, [0.0, 0.0, 0.0, 1.0], quat)
             scl = keys_for(b['tracks'].get('KGSC'), seq, [1.0, 1.0, 1.0], scale)
-            if name in PLANTED and not any(part in b['name'] for part in PLANTED_MOBILE):
-                pos, rot, scl = pos[:1], rot[:1], scl[:1]
-            if name in LOOPING:
-                pos = close_loop(pos)
+            if name in ROOT_HELD and object_to_bone.get(b['parentId'], -1) < 0:
+                pos = pos[:1]
             pos = reduce_keys(pos, POS_TOLERANCE)
             rot = reduce_keys(rot, ROT_TOLERANCE, rotation=True)
             scl = reduce_keys(scl, SCALE_TOLERANCE)

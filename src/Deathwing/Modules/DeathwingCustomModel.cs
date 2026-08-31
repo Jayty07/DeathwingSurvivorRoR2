@@ -51,6 +51,8 @@ namespace Deathwing.Modules
         private float logged;
         private Vector3 rest;
         private float rise;
+        private float footDrop;
+        private bool settled;
 
         private void OnEnable()
         {
@@ -222,6 +224,12 @@ namespace Deathwing.Modules
         /// somewhere else, so instead his drawn bounds are compared against the ground for a moment
         /// after spawning and the difference is taken out. Whichever space the skinning resolves into,
         /// that converges.
+        ///
+        /// What that moment measures is how far his lowest drawn point sits below his model root, and
+        /// from then on only the ground is read. Comparing his bounds against the ground every frame
+        /// instead makes the correction chase his animation: a raised foot or a wingbeat moves the
+        /// bottom of his geometry, and taking that difference out heaves the whole dragon up and down
+        /// in time with the clip.
         /// </summary>
         private void Fit()
         {
@@ -258,19 +266,27 @@ namespace Deathwing.Modules
             // by anything else - a drop pod on the first stage, a lift, a jump - is held for the rest of
             // the run. Off the ground he is only held where he was, since there is nothing to read.
             bool grounded = !body.characterMotor || body.characterMotor.isGrounded;
-            if (!grounded || !Drawn(out float bottom))
+            if (!grounded || !Ground(body, out float ground, out string from))
             {
                 Place(root);
                 return;
             }
 
-            if (!Ground(body, out float ground, out string from) && age > alignDuration)
+            if (!settled)
             {
-                Place(root);
-                return;
+                if (!Drawn(out float bottom))
+                {
+                    Place(root);
+                    return;
+                }
+
+                // The deepest reading of the settling window, so the correction ends up under his
+                // lowest extremity rather than under whichever foot happened to be raised.
+                footDrop = Mathf.Max(footDrop, root.position.y - bottom);
+                settled = age > alignDuration;
             }
 
-            float delta = ground + Tuning.realModelLift.Value - bottom;
+            float delta = ground + Tuning.realModelLift.Value + footDrop - root.position.y;
             rise += delta;
             Place(root);
 
@@ -279,9 +295,9 @@ namespace Deathwing.Modules
             if (Time.time > logged + 0.75f && (age < alignDuration || Mathf.Abs(delta) > 0.5f))
             {
                 logged = Time.time;
-                Log.Info($"Raised the model {rise:0.###}m onto the ground read from {from} (his drawn "
-                    + $"bottom was at {bottom:0.##}, that ground at {ground:0.##}, his foot position at "
-                    + $"{body.footPosition.y:0.##}, model root now at {root.position.y:0.##}).");
+                Log.Info($"Raised the model {rise:0.###}m onto the ground read from {from} (that ground "
+                    + $"at {ground:0.##}, his feet {footDrop:0.##}m under his model root, his foot "
+                    + $"position at {body.footPosition.y:0.##}, model root now at {root.position.y:0.##}).");
             }
         }
 

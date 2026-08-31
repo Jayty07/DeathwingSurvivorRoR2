@@ -110,7 +110,9 @@ namespace Deathwing.Modules
             LanguageAPI.Add(dragonflightDescription,
                 $"Take <style=cIsUtility>{Dragonflight.takeoffDuration:0.#}s</style> to take off, then fly freely, " +
                 "<style=cIsHealing>immune to all damage</style>, <style=cIsHealing>healing</style> and " +
-                "<style=cIsHealing>rebuilding your plates</style> as you go. <style=cIsHealth>Cannot be cast shortly after taking damage.</style>");
+                "<style=cIsHealing>rebuilding your plates</style> as you go. Airborne, your primary " +
+                $"<style=cIsDamage>rains fireballs for {Tuning.dragonFireDamageCoefficient.Value * 100f:0}% damage</style> " +
+                "and your secondary dives on them. <style=cIsHealth>Cannot be cast shortly after taking damage.</style>");
 
             LanguageAPI.Add(formSwitchName, "Change Form");
             LanguageAPI.Add(formSwitchDescription,

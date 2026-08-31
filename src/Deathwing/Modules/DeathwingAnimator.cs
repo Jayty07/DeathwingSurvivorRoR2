@@ -23,10 +23,11 @@ namespace Deathwing.Modules
         internal const string boulder = "Spell D";
         internal const string chargeStart = "Spell C Start";
         internal const string charge = "Spell C";
-        internal const string flightStart = "Spell H Start";
+        internal const string takeoff = "Spell Z Start";
         internal const string flightLoop = "Spell H";
         internal const string flightLand = "Spell H End";
         internal const string dive = "Spell Z End";
+        internal const string airborne = "Spell B";
         internal const string cataclysm = "Spell J";
         internal const string death = "Death";
         internal const string taunt = "Taunt";
@@ -162,8 +163,9 @@ namespace Deathwing.Modules
 
             if (motor && !motor.isGrounded)
             {
-                // Wings out and gliding covers both flight and an ordinary fall.
-                return DeathwingClips.flightLoop;
+                // A jump or a fall is wings thrown open to catch himself, not the soaring cycle:
+                // beating his way across the sky reads as flight, which he is not doing.
+                return DeathwingClips.airborne;
             }
 
             Vector3 velocity = motor ? motor.velocity : Vector3.zero;
