@@ -20,7 +20,10 @@ namespace Deathwing.SkillStates
         /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
         public static float landDelay = 0.5f;
         public static float fireballSpeed = 90f;
+        /// <summary>Blast radius of each meteor; the landing circle is drawn at this size.</summary>
+        public static float meteorBlastRadius = 9f;
 
+        private MeteorMarker marker;
         private float maxDuration;
         private float healStopwatch;
         private float fireStopwatch;
@@ -126,6 +129,8 @@ namespace Deathwing.SkillStates
                 {
                     wantsToDive = true;
                 }
+
+                UpdateMarker();
             }
 
             if (!wantsToDive && fixedAge > takeoffDuration + landDelay && Tuning.dragonflightKey.Value.IsDown())
@@ -148,9 +153,10 @@ namespace Deathwing.SkillStates
         }
 
         /// <summary>
-        /// Spits a fireball down at what he is aiming at, no faster than his own breath allows. It is
-        /// aimed at the surface under the cursor rather than straight down, so he can lead a target he
-        /// is flying over instead of only bombing what is directly beneath him.
+        /// Calls a meteor down on what he is aiming at, no faster than his own breath allows. It falls
+        /// out of the sky above the spot rather than being spat from his jaws, so it arrives as a
+        /// meteor; the spot itself is the surface under the cursor rather than whatever is directly
+        /// beneath him, so he can pick a target he is flying past.
         /// </summary>
         private void Breathe()
         {
@@ -163,22 +169,19 @@ namespace Deathwing.SkillStates
             fireStopwatch = 0f;
             characterBody.SetAimTimer(1f);
 
-            Ray aimRay = GetAimRay();
-            Vector3 origin = aimRay.origin + aimRay.direction * (2.5f * characterScale);
-            Vector3 target = Physics.Raycast(aimRay, out RaycastHit hit, 400f,
-                LayerIndex.world.mask | LayerIndex.entityPrecise.mask)
-                ? hit.point
-                : aimRay.GetPoint(200f);
-            Vector3 direction = (target - origin).normalized;
+            Vector3 target = AimGround(out _);
+            Vector3 origin = target + Vector3.up * Tuning.dragonFireHeight.Value;
 
             DeathwingVoice.Play(DeathwingVoice.flameBreath, gameObject, 0.5f);
+            // The flare where it tears out of the clouds, so the meteor is seen coming.
+            DeathwingAssets.SpawnEffect(DeathwingAssets.fireImpactEffect, origin, 3f, gameObject);
 
             if (Projectiles.dragonFire)
             {
                 ProjectileManager.instance.FireProjectile(
                     Projectiles.dragonFire,
                     origin,
-                    Quaternion.LookRotation(direction),
+                    Quaternion.LookRotation(Vector3.down),
                     gameObject,
                     damageStat * Tuning.dragonFireDamageCoefficient.Value,
                     900f,
@@ -189,9 +192,57 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            // Without the borrowed projectile the fireball still has to land somewhere.
-            CreateFireBlast(target, 9f, Tuning.dragonFireDamageCoefficient.Value, 900f).Fire();
+            // Without the borrowed projectile the meteor still has to land somewhere.
+            CreateFireBlast(target, meteorBlastRadius, Tuning.dragonFireDamageCoefficient.Value, 900f).Fire();
             SpawnFireEffect(target, 4f);
+        }
+
+        /// <summary>The surface he is aiming at, and the way that surface faces.</summary>
+        private Vector3 AimGround(out Vector3 normal)
+        {
+            Ray aimRay = GetAimRay();
+            if (Physics.Raycast(aimRay, out RaycastHit hit, 400f,
+                LayerIndex.world.mask | LayerIndex.entityPrecise.mask))
+            {
+                normal = hit.normal;
+                return hit.point;
+            }
+
+            // Nothing under the cursor: whatever lies below the point he is looking at is used instead,
+            // so the marker stays on the ground rather than hanging in mid-air.
+            Vector3 ahead = aimRay.GetPoint(200f);
+            if (Physics.Raycast(ahead + Vector3.up * 60f, Vector3.down, out RaycastHit below, 600f,
+                LayerIndex.world.mask))
+            {
+                normal = below.normal;
+                return below.point;
+            }
+
+            normal = Vector3.up;
+            return ahead;
+        }
+
+        /// <summary>
+        /// Keeps the landing circle under his aim while he flies, so where the next meteor comes down is
+        /// known before it is called. It is built on demand and only on the machine flying him.
+        /// </summary>
+        private void UpdateMarker()
+        {
+            if (!Tuning.dragonFireMarker.Value)
+            {
+                return;
+            }
+
+            if (!marker)
+            {
+                marker = MeteorMarker.Create();
+                if (!marker)
+                {
+                    return;
+                }
+            }
+
+            marker.Show(AimGround(out Vector3 normal), normal, meteorBlastRadius);
         }
 
         /// <summary>Closes his wounds a fraction of his maximum health at a time while he is up.</summary>
@@ -270,6 +321,12 @@ namespace Deathwing.SkillStates
             // Whatever ends the flight - a dive, the landing state, a death - he is drawn again; only
             // the flight itself hides him.
             SetModelHidden(false);
+
+            if (marker)
+            {
+                UnityEngine.Object.Destroy(marker.gameObject);
+                marker = null;
+            }
 
             // The dive and the landing state each play their own clip, so the hold is only released here.
             if (dragon)
