@@ -38,6 +38,10 @@ namespace Deathwing.Modules
         private const float groundProbeRise = 4f;
         private const float groundProbeDrop = 60f;
 
+        /// <summary>The chassis shader's fade, and the toggle that makes it dissolve rather than blend.</summary>
+        private const string fadeProperty = "_Fade";
+        private const string ditherProperty = "_DitherOn";
+
         private static bool reported;
 
         private readonly List<SkinnedMeshRenderer> ours = new List<SkinnedMeshRenderer>();
@@ -53,6 +57,8 @@ namespace Deathwing.Modules
         private float rise;
         private float footDrop;
         private bool settled;
+        private bool hidden;
+        private float fade = 1f;
 
         private void OnEnable()
         {
@@ -75,6 +81,7 @@ namespace Deathwing.Modules
             }
 
             Fit();
+            Dither();
 
             if (age > assertDuration)
             {
@@ -83,6 +90,130 @@ namespace Deathwing.Modules
                 // Nothing left to do for a body drawing the chassis mesh; a body drawing the dragon
                 // keeps running to hold him at the height the correction settled on.
                 enabled = ours.Count > 0;
+            }
+        }
+
+        /// <summary>
+        /// Takes the dragon out of view entirely, as flight does once he has climbed out of the fight.
+        /// Only his renderers stop drawing: his hitboxes, his motor and everything the chassis skeleton
+        /// carries are untouched, so hiding him cannot change how he plays or what the server sees.
+        /// </summary>
+        internal void SetHidden(bool hide)
+        {
+            if (hidden == hide)
+            {
+                return;
+            }
+
+            hidden = hide;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                if (renderer)
+                {
+                    renderer.forceRenderingOff = hide;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fades him out as the camera comes into him. He is fifteen metres of dragon with the camera
+        /// pivot at his middle, so any wall the camera is pushed against puts the view inside his body;
+        /// this dissolves him while that lasts instead of filling the screen with his flank.
+        ///
+        /// The fade is driven on this client's own instance of his material, so it is a local view
+        /// change only: nothing about his position, hitboxes or state is touched, and other players see
+        /// him as normal.
+        /// </summary>
+        private void Dither()
+        {
+            // Left alone during the handover window: the renderer list is still being re-claimed then,
+            // and instancing a material it is about to put back would leak one copy a frame.
+            if (hidden || ours.Count == 0 || age <= assertDuration || !Tuning.cameraDither.Value)
+            {
+                return;
+            }
+
+            float far = Mathf.Max(0.1f, Tuning.cameraDitherDistance.Value);
+            float near = far * 0.25f;
+            float target = 1f;
+
+            Camera camera = ViewingCamera();
+            if (camera)
+            {
+                float distance = float.MaxValue;
+                foreach (SkinnedMeshRenderer renderer in ours)
+                {
+                    if (renderer && renderer.sharedMesh)
+                    {
+                        distance = Mathf.Min(distance,
+                            Mathf.Sqrt(renderer.bounds.SqrDistance(camera.transform.position)));
+                    }
+                }
+
+                if (distance < far)
+                {
+                    target = Mathf.Clamp01((distance - near) / Mathf.Max(0.01f, far - near));
+                }
+            }
+
+            float previous = fade;
+            fade = Mathf.MoveTowards(fade, target, Time.deltaTime * 4f);
+            if (fade < 1f || previous < 1f)
+            {
+                ApplyFade(fade);
+            }
+        }
+
+        /// <summary>The local camera looking at this body, if it is the one being played or spectated.</summary>
+        private Camera ViewingCamera()
+        {
+            CharacterBody body = characterModel ? characterModel.body : null;
+            if (!body)
+            {
+                return null;
+            }
+
+            foreach (CameraRigController rig in CameraRigController.readOnlyInstancesList)
+            {
+                if (rig && rig.target == body.gameObject && rig.sceneCam)
+                {
+                    return rig.sceneCam;
+                }
+            }
+
+            return null;
+        }
+
+        private void ApplyFade(float amount)
+        {
+            bool gone = amount <= 0.02f;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                if (!renderer)
+                {
+                    continue;
+                }
+
+                // Reading the renderer's material instances it, which is what keeps the fade on this
+                // client's copy rather than on the shared material every Deathwing draws with.
+                Material material = renderer.material;
+                if (material && material.HasProperty(fadeProperty))
+                {
+                    if (material.HasProperty(ditherProperty))
+                    {
+                        material.SetFloat(ditherProperty, 1f);
+                    }
+
+                    material.SetFloat(fadeProperty, amount);
+                }
+                else
+                {
+                    // Without a fade in the shader the only honest choice is drawing him or not, so he
+                    // is dropped to a shadow once the camera is properly inside him.
+                    gone = gone || amount < 0.5f;
+                }
+
+                renderer.forceRenderingOff = gone;
             }
         }
 
@@ -412,7 +543,7 @@ namespace Deathwing.Modules
             foreach (SkinnedMeshRenderer renderer in ours)
             {
                 renderer.enabled = true;
-                renderer.forceRenderingOff = false;
+                renderer.forceRenderingOff = hidden;
             }
 
             // The chassis mesh stays in the hierarchy - hitboxes, footsteps and the ragdoll hang off

@@ -71,7 +71,7 @@ namespace Deathwing.Modules
         /// Acrid's green pool and the engineer's green grenade untouched. The ghost is cloned so it can be
         /// recoloured, or dropped entirely when its artwork is the wrong colour beyond tinting.
         /// </summary>
-        private static void ReplaceGhost(GameObject prefab, string name, bool discard)
+        private static void ReplaceGhost(GameObject prefab, string name, bool discard, float scale = 1f)
         {
             if (!prefab.TryGetComponent(out ProjectileController controller) || !controller.ghostPrefab)
             {
@@ -86,6 +86,15 @@ namespace Deathwing.Modules
 
             GameObject ghost = PrefabAPI.InstantiateClone(controller.ghostPrefab, name, false);
             DeathwingAssets.Recolor(ghost);
+
+            // The ghost is what is actually seen: the controller spawns it at the projectile's position
+            // and rotation but never at its scale, so growing the projectile alone grows its collider
+            // and leaves the fireball drawn the size the mage throws it.
+            if (!Mathf.Approximately(scale, 1f))
+            {
+                ghost.transform.localScale *= scale;
+            }
+
             controller.ghostPrefab = ghost;
         }
 
@@ -170,7 +179,8 @@ namespace Deathwing.Modules
             }
 
             GameObject prefab = PrefabAPI.InstantiateClone(source, "DeathwingDragonFire");
-            prefab.transform.localScale *= 2.6f;
+            float scale = Mathf.Max(0.1f, Tuning.dragonFireSize.Value);
+            prefab.transform.localScale *= scale;
 
             if (prefab.TryGetComponent(out ProjectileImpactExplosion impactExplosion))
             {
@@ -202,7 +212,7 @@ namespace Deathwing.Modules
             }
 
             DeathwingAssets.Recolor(prefab);
-            ReplaceGhost(prefab, "DeathwingDragonFireGhost", discard: false);
+            ReplaceGhost(prefab, "DeathwingDragonFireGhost", discard: false, scale: scale);
             ContentAddition.AddProjectile(prefab);
             return prefab;
         }

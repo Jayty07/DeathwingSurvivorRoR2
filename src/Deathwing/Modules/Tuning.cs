@@ -25,6 +25,8 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> extraRowGap;
         internal static ConfigEntry<float> cameraDistance;
         internal static ConfigEntry<float> cameraPivotHeight;
+        internal static ConfigEntry<bool> cameraDither;
+        internal static ConfigEntry<float> cameraDitherDistance;
         internal static ConfigEntry<bool> dropPod;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
@@ -55,6 +57,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> dragonflightCombatLockout;
         internal static ConfigEntry<float> dragonFireDamageCoefficient;
         internal static ConfigEntry<float> dragonFireInterval;
+        internal static ConfigEntry<float> dragonFireSize;
         internal static ConfigEntry<float> heroicCataclysmDamageCoefficient;
         internal static ConfigEntry<float> heroicCataclysmCooldown;
         internal static ConfigEntry<float> bellowingRoarDamageCoefficient;
@@ -105,6 +108,11 @@ namespace Deathwing.Modules
                 + "keeps him framed when you resize him.");
             cameraPivotHeight = config.Bind("Model", "Camera Pivot Height", 0f,
                 "Metres up his body the camera looks at and orbits. 0 puts it at the middle of his body.");
+            cameraDither = config.Bind("Model", "Camera Dither", true,
+                "Dissolve his model as the camera comes into it, so his body cannot fill the screen in "
+                + "tight spaces. Your own view only - other players still see him whole.");
+            cameraDitherDistance = config.Bind("Model", "Camera Dither Distance", 8f,
+                "Metres from his geometry at which that fade begins. He is gone by a quarter of it.");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");
@@ -148,14 +156,21 @@ namespace Deathwing.Modules
             dragonflightCooldown = config.Bind("HotS Skills", "Dragonflight Cooldown", 20f, "Cooldown in seconds.");
             dragonflightDuration = config.Bind("HotS Skills", "Dragonflight Duration", 8f,
                 "Maximum seconds he stays in the sky before landing on his own.");
-            dragonflightHealFraction = config.Bind("HotS Skills", "Dragonflight Heal Per Second", 0.025f,
-                "Fraction of his maximum health healed per second while flying.");
+            // Deliberately not the old "Dragonflight Heal Per Second" key: BepInEx keeps whatever is
+            // already on disk, so raising a default in place would leave existing installs on the old,
+            // far weaker figure.
+            dragonflightHealFraction = config.Bind("HotS Skills", "Dragonflight Heal Fraction Per Second", 0.12f,
+                "Fraction of his maximum health healed per second while flying. Flying is his only way "
+                + "back to full, so this is deliberately generous.");
             dragonflightCombatLockout = config.Bind("HotS Skills", "Dragonflight Combat Lockout", 6f,
                 "Seconds after taking damage or using a skill before Dragonflight can be cast.");
             dragonFireDamageCoefficient = config.Bind("HotS Skills", "Dragon Fire Damage", 2.2f,
                 "Damage coefficient of each fireball he spits down while flying.");
             dragonFireInterval = config.Bind("HotS Skills", "Dragon Fire Interval", 0.45f,
                 "Seconds between those fireballs.");
+            dragonFireSize = config.Bind("HotS Skills", "Dragon Fire Size", 6f,
+                "How much larger than the mage's firebolt each fireball is drawn and struck at. Its blast "
+                + "radius is unchanged, so this is size rather than reach.");
             heroicCataclysmDamageCoefficient = config.Bind("HotS Skills", "Heroic Cataclysm Damage", 2.7f,
                 "Damage coefficient of the impact. The scorched ground burns for a fraction of this per second.");
             heroicCataclysmCooldown = config.Bind("HotS Skills", "Heroic Cataclysm Cooldown", 30f,

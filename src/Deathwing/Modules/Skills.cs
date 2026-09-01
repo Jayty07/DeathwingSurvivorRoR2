@@ -134,8 +134,10 @@ namespace Deathwing.Modules
             charge.interruptPriority = InterruptPriority.PrioritySkill;
             charge.cancelSprintingOnActivation = false;
 
-            // The dive is entered from flight rather than pressed, so it alone needs no skill def.
+            // The dive and the landing are entered from flight rather than pressed, so they alone need
+            // no skill def.
             ContentAddition.AddEntityState<DiveSlam>(out _);
+            ContentAddition.AddEntityState<DragonflightLanding>(out _);
 
             SetupExtraSkills(bodyPrefab, specialIcon);
 

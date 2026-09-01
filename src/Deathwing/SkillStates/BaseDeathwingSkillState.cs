@@ -33,6 +33,34 @@ namespace Deathwing.SkillStates
             }
         }
 
+        private DeathwingCustomModel customModel;
+        private bool customModelResolved;
+
+        /// <summary>The dragon's renderers, if he is wearing the real model. Resolved once, as above.</summary>
+        protected DeathwingCustomModel dragonModel
+        {
+            get
+            {
+                if (!customModelResolved)
+                {
+                    customModelResolved = true;
+                    Transform model = modelLocator ? modelLocator.modelTransform : null;
+                    customModel = model ? model.GetComponent<DeathwingCustomModel>() : null;
+                }
+
+                return customModel;
+            }
+        }
+
+        /// <summary>Draws or stops drawing the dragon. Visual only: nothing else about him changes.</summary>
+        protected void SetModelHidden(bool hidden)
+        {
+            if (dragonModel)
+            {
+                dragonModel.SetHidden(hidden);
+            }
+        }
+
         /// <summary>
         /// Plays one of the real model's clips, falling back to the chassis animator's own state when
         /// the model is not loaded, so both the real dragon and the placeholder mesh animate.

@@ -230,14 +230,27 @@ namespace Deathwing.Modules
                 }
 
                 RectTransform pip = (RectTransform)fill.transform.parent;
+
+                // Plates are shed from the right, so the leftmost is the last one standing. A shed plate
+                // is taken off the bar outright, backdrop and all: an empty socket left behind reads as a
+                // plate he still has, which is the opposite of what the trait is telling him.
+                bool intact = i < remaining - 1;
+                bool wearing = i == remaining - 1;
+                if (pip.gameObject.activeSelf != (intact || wearing))
+                {
+                    pip.gameObject.SetActive(intact || wearing);
+                }
+
+                if (!intact && !wearing)
+                {
+                    continue;
+                }
+
                 pip.sizeDelta = new Vector2(width, height);
                 ((RectTransform)fill.transform).sizeDelta = Vector2.zero;
                 pip.position = topLeft + bar.TransformVector(new Vector3(i * (width + gap), height * 0.6f, 0f));
 
-                // Plates are shed from the right, so the leftmost is the last one standing.
-                bool intact = i < remaining - 1;
-                bool wearing = i == remaining - 1;
-                fill.fillAmount = intact ? 1f : wearing ? 1f - wear : 0f;
+                fill.fillAmount = intact ? 1f : 1f - wear;
                 fill.color = wearing && wear > 0.75f ? plateWornColor : plateColor;
             }
         }

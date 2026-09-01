@@ -16,8 +16,6 @@ namespace Deathwing.SkillStates
     {
         /// <summary>His own takeoff: three seconds of beating his wings before he is clear.</summary>
         public static float takeoffDuration = 3f;
-        /// <summary>Kept gentle because the climb lasts three seconds; he rises, he is not fired upwards.</summary>
-        public static float takeoffVerticalSpeed = 9f;
         public static float horizontalSpeedMultiplier = 2.4f;
         public static float verticalSpeed = 12f;
         public static float hoverDrift = -0.6f;
@@ -37,18 +35,13 @@ namespace Deathwing.SkillStates
             base.OnEnter();
             maxDuration = takeoffDuration + Tuning.dragonflightDuration.Value;
 
+            // He stays on the ground for the whole windup: the three seconds are him beating his wings
+            // to get clear, and lifting him through them fights the clip, which is drawn standing.
             if (characterMotor)
             {
-                characterMotor.useGravity = false;
                 characterMotor.disableAirControlUntilCollision = false;
-                characterMotor.velocity = new Vector3(
-                    characterMotor.velocity.x, takeoffVerticalSpeed, characterMotor.velocity.z);
-
-                // Ground snapping cancels the climb every step unless the motor is unstuck from it.
-                if (characterMotor.Motor)
-                {
-                    characterMotor.Motor.ForceUnground();
-                }
+                characterMotor.velocity = Vector3.zero;
+                characterMotor.moveDirection = Vector3.zero;
             }
 
             characterBody.SetAimTimer(maxDuration);
@@ -66,11 +59,31 @@ namespace Deathwing.SkillStates
             if (characterMotor)
             {
                 characterMotor.velocity = FlightVelocity();
+                if (!airborne)
+                {
+                    characterMotor.moveDirection = Vector3.zero;
+                }
             }
 
             if (!airborne && fixedAge >= takeoffDuration)
             {
                 airborne = true;
+
+                if (characterMotor)
+                {
+                    characterMotor.useGravity = false;
+
+                    // Ground snapping holds him down every step unless the motor is unstuck from it.
+                    if (characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+                }
+
+                // Out of the fight and out of sight the moment the takeoff finishes, as his flight does
+                // in Heroes of the Storm: he is gone, not a dragon hovering overhead.
+                SetModelHidden(true);
+
                 if (dragon)
                 {
                     dragon.PlayHeld(DeathwingClips.flightLoop, 0.2f);
@@ -118,7 +131,9 @@ namespace Deathwing.SkillStates
 
             if (wantsToLand || fixedAge >= maxDuration)
             {
-                outer.SetNextStateToMain();
+                // The descent and the landing beat are their own state: he comes down with no control,
+                // and is rooted from the moment he touches the ground until the beat has played.
+                outer.SetNextState(new DragonflightLanding());
             }
         }
 
@@ -191,10 +206,10 @@ namespace Deathwing.SkillStates
         /// <summary>Climbs on takeoff, then steers with the camera; hold still to hover.</summary>
         private Vector3 FlightVelocity()
         {
+            // Planted through the windup: only whatever gravity is doing to him is kept.
             if (!airborne)
             {
-                return new Vector3(
-                    characterMotor.velocity.x * 0.9f, takeoffVerticalSpeed, characterMotor.velocity.z * 0.9f);
+                return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
             }
 
             Vector3 velocity = Vector3.up * hoverDrift;
@@ -241,10 +256,14 @@ namespace Deathwing.SkillStates
                 characterMotor.useGravity = true;
             }
 
-            // A dive plays its own landing, so the settling wingbeat is only for flights he ends himself.
+            // Whatever ends the flight - a dive, the landing state, a death - he is drawn again; only
+            // the flight itself hides him.
+            SetModelHidden(false);
+
+            // The dive and the landing state each play their own clip, so the hold is only released here.
             if (dragon)
             {
-                dragon.Release(wantsToDive ? null : DeathwingClips.flightLand, 0.5f);
+                dragon.Release();
             }
 
             // Reforged on landing from the health he lands with, exactly as his trait does it. A dive is

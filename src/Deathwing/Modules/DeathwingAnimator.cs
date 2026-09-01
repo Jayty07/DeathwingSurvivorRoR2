@@ -91,6 +91,16 @@ namespace Deathwing.Modules
             overrideHeld = true;
         }
 
+        /// <summary>
+        /// Authored length of a clip in seconds, or 0 if the rig has no such clip. States that have to
+        /// hold him still for exactly as long as an animation runs ask for it rather than guessing.
+        /// </summary>
+        internal float ClipLength(string clip)
+        {
+            AnimationClip found = legacyAnimation ? legacyAnimation.GetClip(clip) : null;
+            return found ? found.length : 0f;
+        }
+
         /// <summary>Hands control back to locomotion, optionally after a closing clip.</summary>
         internal void Release(string closingClip = null, float duration = 0f)
         {
