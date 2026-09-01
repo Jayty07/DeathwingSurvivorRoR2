@@ -112,7 +112,7 @@ namespace Deathwing.Modules
             cameraDither = config.Bind("Model", "Camera Dither", true,
                 "Dissolve his model as the camera comes into it, so his body cannot fill the screen in "
                 + "tight spaces. Your own view only - other players still see him whole.");
-            cameraDitherDistance = config.Bind("Model", "Camera Dither Distance", 3f,
+            cameraDitherDistance = config.Bind("Model", "Camera Dither Distance", 0.01f,
                 "Metres from his geometry at which that fade begins. He is gone by a quarter of it.");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
