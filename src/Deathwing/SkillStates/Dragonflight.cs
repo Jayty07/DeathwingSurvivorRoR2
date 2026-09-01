@@ -1,0 +1,350 @@
+using Deathwing.Modules;
+using EntityStates;
+using RoR2;
+using RoR2.Projectile;
+using UnityEngine;
+
+namespace Deathwing.SkillStates
+{
+    /// <summary>
+    /// His Z, and the spine of his kit. He beats his wings, climbs out of the fight and flies where he
+    /// looks: nothing can touch him up there, he closes his wounds as he goes, and he reforges his shed
+    /// elementium plates the moment he lands. It is also the only way those plates ever come back, which
+    /// is what makes leaving a fight a decision rather than a retreat.
+    /// </summary>
+    public class Dragonflight : BaseDeathwingSkillState
+    {
+        /// <summary>His own takeoff: three seconds of beating his wings before he is clear.</summary>
+        public static float takeoffDuration = 3f;
+        public static float hoverDrift = -0.6f;
+        /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
+        public static float landDelay = 0.5f;
+        public static float fireballSpeed = 90f;
+        /// <summary>Blast radius of each meteor; the landing circle is drawn at this size.</summary>
+        public static float meteorBlastRadius = 9f;
+
+        private MeteorMarker marker;
+        private float maxDuration;
+        private float healStopwatch;
+        private float fireStopwatch;
+        private bool airborne;
+        private bool wantsToDive;
+        private bool wantsToLand;
+
+        public override void OnEnter()
+        {
+            base.OnEnter();
+            maxDuration = takeoffDuration + Tuning.dragonflightDuration.Value;
+
+            // He stays on the ground for the whole windup: the three seconds are him beating his wings
+            // to get clear, and lifting him through them fights the clip, which is drawn standing.
+            if (characterMotor)
+            {
+                characterMotor.disableAirControlUntilCollision = false;
+                characterMotor.velocity = Vector3.zero;
+                characterMotor.moveDirection = Vector3.zero;
+            }
+
+            characterBody.SetAimTimer(maxDuration);
+            Util.PlaySound(Sounds.wingFlap, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.9f);
+            PlayDragonAnimation(DeathwingClips.takeoff, takeoffDuration, "Body", "Jump");
+            DeathwingAssets.SpawnEffect(
+                DeathwingAssets.roarEffect, transform.position, 1.6f * characterScale, gameObject);
+        }
+
+        public override void FixedUpdate()
+        {
+            base.FixedUpdate();
+
+            if (characterMotor)
+            {
+                characterMotor.velocity = FlightVelocity();
+                if (!airborne)
+                {
+                    characterMotor.moveDirection = Vector3.zero;
+                }
+            }
+
+            if (!airborne && fixedAge >= takeoffDuration)
+            {
+                airborne = true;
+
+                if (characterMotor)
+                {
+                    characterMotor.useGravity = false;
+
+                    // Ground snapping holds him down every step unless the motor is unstuck from it.
+                    if (characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+                }
+
+                // Out of the fight and out of sight the moment the takeoff finishes, as his flight does
+                // in Heroes of the Storm: he is gone, not a dragon hovering overhead.
+                SetModelHidden(true);
+
+                if (dragon)
+                {
+                    dragon.PlayHeld(DeathwingClips.flightLoop, 0.2f);
+                }
+            }
+
+            if (airborne)
+            {
+                // Untouchable and mending: refreshed each step rather than applied once, so nothing that
+                // strips buffs can leave him flying without either.
+                characterBody.AddTimedBuff(RoR2Content.Buffs.Immune, 0.3f);
+                Heal();
+
+                // Brushing the ground mid-flight used to end his climb for good: the motor grounds him,
+                // and ground snapping then holds him there however hard he beats his wings. He is kept
+                // ungrounded for as long as the flight lasts, so he can always lift off again.
+                if (characterMotor)
+                {
+                    characterMotor.useGravity = false;
+                    if (characterMotor.isGrounded && characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+                }
+            }
+
+            if (!isAuthority)
+            {
+                return;
+            }
+
+            if (airborne && inputBank)
+            {
+                // M1 rains fire on what he is looking at, as it does in Heroes of the Storm; the dive is
+                // on M2 so holding fire cannot slam him into the ground by accident.
+                if (inputBank.skill1.down)
+                {
+                    Breathe();
+                }
+
+                if (inputBank.skill2.justPressed)
+                {
+                    wantsToDive = true;
+                }
+
+                UpdateMarker();
+            }
+
+            if (!wantsToDive && fixedAge > takeoffDuration + landDelay && Tuning.dragonflightKey.Value.IsDown())
+            {
+                wantsToLand = true;
+            }
+
+            if (wantsToDive)
+            {
+                outer.SetNextState(new DiveSlam());
+                return;
+            }
+
+            if (wantsToLand || fixedAge >= maxDuration)
+            {
+                // The descent and the landing beat are their own state: he comes down with no control,
+                // and is rooted from the moment he touches the ground until the beat has played.
+                outer.SetNextState(new DragonflightLanding());
+            }
+        }
+
+        /// <summary>
+        /// Calls a meteor down on what he is aiming at, no faster than his own breath allows. It falls
+        /// out of the sky above the spot rather than being spat from his jaws, so it arrives as a
+        /// meteor; the spot itself is the surface under the cursor rather than whatever is directly
+        /// beneath him, so he can pick a target he is flying past.
+        /// </summary>
+        private void Breathe()
+        {
+            fireStopwatch += GetDeltaTime();
+            if (fireStopwatch < Tuning.dragonFireInterval.Value)
+            {
+                return;
+            }
+
+            fireStopwatch = 0f;
+            characterBody.SetAimTimer(1f);
+
+            Vector3 target = AimGround(out _);
+            Vector3 origin = target + Vector3.up * Tuning.dragonFireHeight.Value;
+
+            DeathwingVoice.Play(DeathwingVoice.flameBreath, gameObject, 0.5f);
+            // The flare where it tears out of the clouds, so the meteor is seen coming.
+            DeathwingAssets.SpawnEffect(DeathwingAssets.fireImpactEffect, origin, 3f, gameObject);
+
+            if (Projectiles.dragonFire)
+            {
+                ProjectileManager.instance.FireProjectile(
+                    Projectiles.dragonFire,
+                    origin,
+                    Quaternion.LookRotation(Vector3.down),
+                    gameObject,
+                    damageStat * Tuning.dragonFireDamageCoefficient.Value,
+                    900f,
+                    RollCrit(),
+                    DamageColorIndex.Item,
+                    null,
+                    fireballSpeed);
+                return;
+            }
+
+            // Without the borrowed projectile the meteor still has to land somewhere.
+            CreateFireBlast(target, meteorBlastRadius, Tuning.dragonFireDamageCoefficient.Value, 900f).Fire();
+            SpawnFireEffect(target, 4f);
+        }
+
+        /// <summary>The surface he is aiming at, and the way that surface faces.</summary>
+        private Vector3 AimGround(out Vector3 normal)
+        {
+            Ray aimRay = GetAimRay();
+            if (Physics.Raycast(aimRay, out RaycastHit hit, 400f,
+                LayerIndex.world.mask | LayerIndex.entityPrecise.mask))
+            {
+                normal = hit.normal;
+                return hit.point;
+            }
+
+            // Nothing under the cursor: whatever lies below the point he is looking at is used instead,
+            // so the marker stays on the ground rather than hanging in mid-air.
+            Vector3 ahead = aimRay.GetPoint(200f);
+            if (Physics.Raycast(ahead + Vector3.up * 60f, Vector3.down, out RaycastHit below, 600f,
+                LayerIndex.world.mask))
+            {
+                normal = below.normal;
+                return below.point;
+            }
+
+            normal = Vector3.up;
+            return ahead;
+        }
+
+        /// <summary>
+        /// Keeps the landing circle under his aim while he flies, so where the next meteor comes down is
+        /// known before it is called. It is built on demand and only on the machine flying him.
+        /// </summary>
+        private void UpdateMarker()
+        {
+            if (!Tuning.dragonFireMarker.Value)
+            {
+                return;
+            }
+
+            if (!marker)
+            {
+                marker = MeteorMarker.Create();
+                if (!marker)
+                {
+                    return;
+                }
+            }
+
+            marker.Show(AimGround(out Vector3 normal), normal, meteorBlastRadius);
+        }
+
+        /// <summary>Closes his wounds a fraction of his maximum health at a time while he is up.</summary>
+        private void Heal()
+        {
+            if (!isAuthority || !healthComponent)
+            {
+                return;
+            }
+
+            healStopwatch += GetDeltaTime();
+            if (healStopwatch < 0.25f)
+            {
+                return;
+            }
+
+            healthComponent.Heal(
+                healthComponent.fullHealth * Tuning.dragonflightHealFraction.Value * healStopwatch, default);
+            healStopwatch = 0f;
+        }
+
+        /// <summary>Climbs on takeoff, then steers with the camera; hold still to hover.</summary>
+        private Vector3 FlightVelocity()
+        {
+            // Planted through the windup: only whatever gravity is doing to him is kept.
+            if (!airborne)
+            {
+                return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
+            }
+
+            Vector3 velocity = Vector3.up * hoverDrift;
+
+            if (inputBank)
+            {
+                Vector3 moveInput = inputBank.moveVector;
+                if (moveInput.sqrMagnitude > 0.01f)
+                {
+                    Vector3 aim = GetAimRay().direction;
+                    Vector3 flatAim = new Vector3(aim.x, 0f, aim.z).normalized;
+                    Vector3 right = Vector3.Cross(Vector3.up, flatAim);
+
+                    // Forward follows the full aim direction, so looking up climbs and looking down dives;
+                    // strafing stays level.
+                    Vector3 direction = aim * Vector3.Dot(moveInput.normalized, flatAim)
+                        + right * Vector3.Dot(moveInput.normalized, right);
+
+                    velocity += direction.normalized
+                        * (moveSpeedStat * Tuning.dragonflightSpeed.Value);
+                }
+
+                if (inputBank.jump.down)
+                {
+                    velocity += Vector3.up * Tuning.dragonflightClimbSpeed.Value;
+                }
+            }
+
+            if (characterDirection)
+            {
+                Vector3 facing = new Vector3(velocity.x, 0f, velocity.z);
+                if (facing.sqrMagnitude > 1f)
+                {
+                    characterDirection.forward = facing.normalized;
+                }
+            }
+
+            return velocity;
+        }
+
+        public override void OnExit()
+        {
+            if (characterMotor)
+            {
+                characterMotor.useGravity = true;
+            }
+
+            // Whatever ends the flight - a dive, the landing state, a death - he is drawn again; only
+            // the flight itself hides him.
+            SetModelHidden(false);
+
+            if (marker)
+            {
+                UnityEngine.Object.Destroy(marker.gameObject);
+                marker = null;
+            }
+
+            // The dive and the landing state each play their own clip, so the hold is only released here.
+            if (dragon)
+            {
+                dragon.Release();
+            }
+
+            // Reforged on landing from the health he lands with, exactly as his trait does it. A dive is
+            // still a landing, so it counts too.
+            DeathwingForms forms = GetComponent<DeathwingForms>();
+            if (forms)
+            {
+                forms.OnDragonflightLanded(forms.currentForm);
+            }
+
+            base.OnExit();
+        }
+
+        public override InterruptPriority GetMinimumInterruptPriority() => InterruptPriority.PrioritySkill;
+    }
+}
