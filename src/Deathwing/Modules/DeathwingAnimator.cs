@@ -58,6 +58,15 @@ namespace Deathwing.Modules
         private bool overrideHeld;
         private string playing;
 
+        /// <summary>
+        /// How fast he is actually travelling, measured from how far he has moved rather than read off
+        /// the motor: the motor only runs on the machine that owns him, so on every other client its
+        /// velocity is zero and he slides across the ground in his idle.
+        /// </summary>
+        private Vector3 measuredVelocity;
+        private Vector3 lastPosition;
+        private bool hasLastPosition;
+
         private void Awake()
         {
             legacyAnimation = GetComponent<Animation>();
@@ -133,6 +142,8 @@ namespace Deathwing.Modules
 
         private void Update()
         {
+            Measure();
+
             if (overrideHeld)
             {
                 return;
@@ -160,6 +171,35 @@ namespace Deathwing.Modules
             }
         }
 
+        /// <summary>
+        /// Tracks how far the body has moved this frame. Remote clients receive his position and nothing
+        /// else, so this is the only reading of his movement that exists on every machine.
+        /// </summary>
+        private void Measure()
+        {
+            if (!body)
+            {
+                return;
+            }
+
+            Vector3 position = body.transform.position;
+            if (hasLastPosition && Time.deltaTime > 0f)
+            {
+                // Smoothed, because his position arrives in network updates rather than every frame, so
+                // the raw difference alternates between a large step and nothing at all.
+                measuredVelocity = Vector3.Lerp(
+                    measuredVelocity,
+                    (position - lastPosition) / Time.deltaTime,
+                    Mathf.Clamp01(Time.deltaTime * 10f));
+            }
+
+            lastPosition = position;
+            hasLastPosition = true;
+        }
+
+        /// <summary>True on the machine that simulates him, and so the only one whose motor is running.</summary>
+        private bool Owned() => motor && motor.hasEffectiveAuthority;
+
         private string Locomotion(out float speed)
         {
             speed = 1f;
@@ -171,14 +211,18 @@ namespace Deathwing.Modules
                 return DeathwingClips.idle;
             }
 
-            if (motor && !motor.isGrounded)
+            // A jump or a fall is wings thrown open to catch himself, not the soaring cycle: beating his
+            // way across the sky reads as flight, which he is not doing. Off the owning machine the
+            // motor cannot say whether he is grounded, so how fast he is dropping stands in for it.
+            bool airborne = Owned()
+                ? motor && !motor.isGrounded
+                : Mathf.Abs(measuredVelocity.y) > 6f;
+            if (airborne)
             {
-                // A jump or a fall is wings thrown open to catch himself, not the soaring cycle:
-                // beating his way across the sky reads as flight, which he is not doing.
                 return DeathwingClips.airborne;
             }
 
-            Vector3 velocity = motor ? motor.velocity : Vector3.zero;
+            Vector3 velocity = Owned() && motor ? motor.velocity : measuredVelocity;
             float groundSpeed = new Vector3(velocity.x, 0f, velocity.z).magnitude;
             if (groundSpeed > 0.6f)
             {

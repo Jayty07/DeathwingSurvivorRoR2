@@ -16,27 +16,19 @@ namespace Deathwing.Modules
         private HealthComponent health;
         private int plates = maxPlates;
 
-        /// <summary>Damage he has taken since his plates were last whole, in health points.</summary>
-        private float damageTaken;
-
-        private float lastHealth;
+        /// <summary>
+        /// The lowest fraction of his health he has been down to since his plates were last whole. It is
+        /// held at that low mark rather than following his health back up, because healing does not
+        /// rebuild a plate; only landing from Dragonflight does.
+        /// </summary>
+        private float lowMark = 1f;
 
         internal int platesRemaining => plates;
 
-        /// <summary>How far the damage he has taken has eaten into the plate he is about to lose, 0 to 1.</summary>
-        internal float plateWear
-        {
-            get
-            {
-                if (plates <= 0 || !health || health.fullCombinedHealth <= 0f)
-                {
-                    return 0f;
-                }
-
-                float perPlate = health.fullCombinedHealth / maxPlates;
-                return Mathf.Clamp01(damageTaken % perPlate / perPlate);
-            }
-        }
+        /// <summary>How far into the plate he is about to lose his health has fallen, 0 to 1.</summary>
+        internal float plateWear => plates <= 0
+            ? 0f
+            : Mathf.Repeat((1f - lowMark) * maxPlates, 1f);
 
         private void Awake()
         {
@@ -46,35 +38,34 @@ namespace Deathwing.Modules
 
         private void Start()
         {
-            lastHealth = health ? health.combinedHealth : 0f;
+            lowMark = HealthFraction();
         }
 
         private void FixedUpdate()
         {
-            if (!health || health.fullCombinedHealth <= 0f)
+            if (!health || health.fullHealth <= 0f)
             {
                 return;
             }
 
-            // Damage is accumulated rather than read off his current health, so healing back up cannot
-            // rebuild a plate and taking the same quarter twice costs him two.
-            float current = health.combinedHealth;
-            if (current < lastHealth)
-            {
-                damageTaken += lastHealth - current;
-            }
+            // Plates come off at quarters of his health bar and nothing else. Totalling the damage done
+            // to him also counted barrier, shields and the overkill on a big hit, so an item that gave
+            // him barrier stripped plates his health says he still has.
+            lowMark = Mathf.Min(lowMark, HealthFraction());
 
-            lastHealth = current;
-
-            int shed = Mathf.FloorToInt(damageTaken / (health.fullCombinedHealth / maxPlates));
+            int shed = Mathf.FloorToInt((1f - lowMark) * maxPlates);
             SetPlates(Mathf.Clamp(maxPlates - shed, 0, maxPlates));
         }
+
+        /// <summary>His health alone: barrier and shields are not what the plates are measured against.</summary>
+        private float HealthFraction() => health && health.fullHealth > 0f
+            ? Mathf.Clamp01(health.health / health.fullHealth)
+            : 1f;
 
         /// <summary>Rebuilds every plate. Only Dragonflight calls this.</summary>
         internal void Reforge()
         {
-            damageTaken = 0f;
-            lastHealth = health ? health.combinedHealth : 0f;
+            lowMark = HealthFraction();
             SetPlates(maxPlates);
         }
 

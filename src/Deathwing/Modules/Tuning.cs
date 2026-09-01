@@ -54,6 +54,8 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> dragonflightCooldown;
         internal static ConfigEntry<float> dragonflightDuration;
         internal static ConfigEntry<float> dragonflightHealFraction;
+        internal static ConfigEntry<float> dragonflightSpeed;
+        internal static ConfigEntry<float> dragonflightClimbSpeed;
         internal static ConfigEntry<float> dragonflightCombatLockout;
         internal static ConfigEntry<float> dragonFireDamageCoefficient;
         internal static ConfigEntry<float> dragonFireInterval;
@@ -163,6 +165,11 @@ namespace Deathwing.Modules
             dragonflightHealFraction = config.Bind("HotS Skills", "Dragonflight Heal Fraction Per Second", 0.12f,
                 "Fraction of his maximum health healed per second while flying. Flying is his only way "
                 + "back to full, so this is deliberately generous.");
+            dragonflightSpeed = config.Bind("HotS Skills", "Dragonflight Speed", 5f,
+                "Multiplier on his movement speed while flying. He crosses a stage in his flight rather "
+                + "than lumbering through the air at walking pace.");
+            dragonflightClimbSpeed = config.Bind("HotS Skills", "Dragonflight Climb Speed", 26f,
+                "Metres per second he gains holding jump while flying.");
             dragonflightCombatLockout = config.Bind("HotS Skills", "Dragonflight Combat Lockout", 6f,
                 "Seconds after taking damage or using a skill before Dragonflight can be cast.");
             dragonFireDamageCoefficient = config.Bind("HotS Skills", "Dragon Fire Damage", 2.2f,

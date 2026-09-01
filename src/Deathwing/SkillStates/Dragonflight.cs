@@ -16,8 +16,6 @@ namespace Deathwing.SkillStates
     {
         /// <summary>His own takeoff: three seconds of beating his wings before he is clear.</summary>
         public static float takeoffDuration = 3f;
-        public static float horizontalSpeedMultiplier = 2.4f;
-        public static float verticalSpeed = 12f;
         public static float hoverDrift = -0.6f;
         /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
         public static float landDelay = 0.5f;
@@ -96,6 +94,18 @@ namespace Deathwing.SkillStates
                 // strips buffs can leave him flying without either.
                 characterBody.AddTimedBuff(RoR2Content.Buffs.Immune, 0.3f);
                 Heal();
+
+                // Brushing the ground mid-flight used to end his climb for good: the motor grounds him,
+                // and ground snapping then holds him there however hard he beats his wings. He is kept
+                // ungrounded for as long as the flight lasts, so he can always lift off again.
+                if (characterMotor)
+                {
+                    characterMotor.useGravity = false;
+                    if (characterMotor.isGrounded && characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+                }
             }
 
             if (!isAuthority)
@@ -228,12 +238,13 @@ namespace Deathwing.SkillStates
                     Vector3 direction = aim * Vector3.Dot(moveInput.normalized, flatAim)
                         + right * Vector3.Dot(moveInput.normalized, right);
 
-                    velocity += direction.normalized * (moveSpeedStat * horizontalSpeedMultiplier);
+                    velocity += direction.normalized
+                        * (moveSpeedStat * Tuning.dragonflightSpeed.Value);
                 }
 
                 if (inputBank.jump.down)
                 {
-                    velocity += Vector3.up * verticalSpeed;
+                    velocity += Vector3.up * Tuning.dragonflightClimbSpeed.Value;
                 }
             }
 

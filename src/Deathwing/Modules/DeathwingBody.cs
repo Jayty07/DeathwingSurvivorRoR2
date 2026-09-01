@@ -179,6 +179,8 @@ namespace Deathwing.Modules
             scaleTarget.localScale = Vector3.one * Tuning.modelScale.Value;
 
             ReplaceModel(modelTransform);
+            HideItemDisplays(modelTransform);
+            TrimSkins(modelTransform);
             AddHitBoxes(modelTransform);
         }
 
@@ -278,6 +280,36 @@ namespace Deathwing.Modules
                 transform = mouth.transform
             };
             childLocator.transformPairs = extended;
+        }
+
+        /// <summary>
+        /// Stops collected items being drawn on him. The rules describe where each item sits on a
+        /// commando, so on a dragon they hang in the air around him; dropping the whole set is visual
+        /// only, and the items themselves work exactly as they did.
+        /// </summary>
+        private static void HideItemDisplays(Transform modelTransform)
+        {
+            CharacterModel characterModel = modelTransform.GetComponent<CharacterModel>();
+            if (characterModel)
+            {
+                characterModel.itemDisplayRuleSet = null;
+            }
+        }
+
+        /// <summary>
+        /// Leaves him one skin. The chassis brings the commando's alternate skins with it, and they were
+        /// offered in character select as though they were his; only his own default entry is kept, which
+        /// is also the one the chassis assigns its materials from. The commando's own skins are untouched.
+        /// </summary>
+        private static void TrimSkins(Transform modelTransform)
+        {
+            ModelSkinController skinController = modelTransform.GetComponent<ModelSkinController>();
+            if (!skinController || skinController.skins == null || skinController.skins.Length <= 1)
+            {
+                return;
+            }
+
+            skinController.skins = new[] { skinController.skins[0] };
         }
 
         /// <summary>
