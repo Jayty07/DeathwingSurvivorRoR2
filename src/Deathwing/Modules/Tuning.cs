@@ -58,6 +58,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> dragonFireDamageCoefficient;
         internal static ConfigEntry<float> dragonFireInterval;
         internal static ConfigEntry<float> dragonFireSize;
+        internal static ConfigEntry<float> clawReach;
         internal static ConfigEntry<float> heroicCataclysmDamageCoefficient;
         internal static ConfigEntry<float> heroicCataclysmCooldown;
         internal static ConfigEntry<float> bellowingRoarDamageCoefficient;
@@ -168,6 +169,9 @@ namespace Deathwing.Modules
                 "Damage coefficient of each fireball he spits down while flying.");
             dragonFireInterval = config.Bind("HotS Skills", "Dragon Fire Interval", 0.45f,
                 "Seconds between those fireballs.");
+            clawReach = config.Bind("Skills", "Claw Reach", 3.4f,
+                "How far in front of him his claws land, before his scale is applied. His head reaches "
+                + "well past his capsule, so this sits ahead of where a survivor's melee would.");
             dragonFireSize = config.Bind("HotS Skills", "Dragon Fire Size", 6f,
                 "How much larger than the mage's firebolt each fireball is drawn and struck at. Its blast "
                 + "radius is unchanged, so this is size rather than reach.");

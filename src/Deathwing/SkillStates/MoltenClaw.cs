@@ -141,7 +141,8 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            Vector3 origin = transform.position + Vector3.up * (1.2f * characterScale) + characterDirection.forward * (2.4f * characterScale);
+            Vector3 origin = transform.position + Vector3.up * (1.2f * characterScale)
+                + characterDirection.forward * (Tuning.clawReach.Value * characterScale);
             SpawnFireEffect(origin, (IsFinisher ? 2.4f : 1.3f) * characterScale);
         }
 
@@ -156,7 +157,8 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            Vector3 impact = GroundPosition(transform.position + characterDirection.forward * (2.4f * characterScale));
+            Vector3 impact = GroundPosition(
+                transform.position + characterDirection.forward * (Tuning.clawReach.Value * characterScale));
             BlastAttack blast = CreateFireBlast(impact, finisherBlastRadius * characterScale, DamageCoefficient * 0.5f, finisherBlastForce);
             blast.bonusForce = Vector3.up * (finisherBlastForce * 0.35f);
             blast.Fire();

@@ -137,7 +137,7 @@ namespace Deathwing.Modules
                 ? Tuning.realModelHeight.Value
                 : 3f * Tuning.modelScale.Value;
 
-            float distance = Tuning.cameraDistance.Value > 0f ? Tuning.cameraDistance.Value : height * 1.8f;
+            float distance = Tuning.cameraDistance.Value > 0f ? Tuning.cameraDistance.Value : height * 2.4f;
             float pivot = Tuning.cameraPivotHeight.Value > 0f ? Tuning.cameraPivotHeight.Value : height * 0.5f;
 
             CharacterCameraParams cameraParams = ScriptableObject.CreateInstance<CharacterCameraParams>();
@@ -286,7 +286,7 @@ namespace Deathwing.Modules
         /// </summary>
         private static void AddHitBoxes(Transform modelTransform)
         {
-            CreateHitBoxGroup(modelTransform, clawHitBoxGroupName, new Vector3(0f, 0.9f, 1.9f), new Vector3(3.6f, 2.4f, 3.4f));
+            CreateHitBoxGroup(modelTransform, clawHitBoxGroupName, new Vector3(0f, 0.9f, Tuning.clawReach.Value), new Vector3(3.6f, 2.4f, 3.4f));
             CreateHitBoxGroup(modelTransform, chargeHitBoxGroupName, new Vector3(0f, 0.9f, 1.2f), new Vector3(3.2f, 2.6f, 3.2f));
         }
 
