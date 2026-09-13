@@ -28,7 +28,7 @@ namespace Deathwing.SkillStates
         /// its end.
         /// </summary>
         public static float climbStartFraction = 0.4f;
-        public static float climbHeight = 22f;
+        public static float climbHeight = 11f;
         public static float descentSpeed = 45f;
         public static float maxDescentDuration = 8f;
         public static float minDescentDuration = 0.15f;

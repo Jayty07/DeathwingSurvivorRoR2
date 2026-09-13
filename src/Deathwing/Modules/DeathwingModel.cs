@@ -79,6 +79,7 @@ namespace Deathwing.Modules
 
             root.AddComponent<DeathwingAnimator>();
             root.AddComponent<DeathwingPaws>();
+            root.AddComponent<DeathwingGaze>();
             return root;
         }
 

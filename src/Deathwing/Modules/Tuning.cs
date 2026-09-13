@@ -23,6 +23,8 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<float> walkCycleSpeed;
         internal static ConfigEntry<float> pawFlatten;
+        internal static ConfigEntry<float> headTracking;
+        internal static ConfigEntry<float> restAfter;
         internal static ConfigEntry<float> extraRowGap;
         internal static ConfigEntry<float> cameraDistance;
         internal static ConfigEntry<float> cameraPivotHeight;
@@ -131,6 +133,12 @@ namespace Deathwing.Modules
             pawFlatten = config.Bind("Model", "Front Paw Flatten", 1f,
                 "How far his front paws are levelled onto the ground while he stands and walks (0 leaves the "
                 + "rig's claw-tip stance, 1 puts the whole palm down).");
+            headTracking = config.Bind("Model", "Head Tracking", 1f,
+                "How far his head and neck turn to follow where the camera is aimed while he stands and "
+                + "walks (0 = off, 1 = the full turn).");
+            restAfter = config.Bind("Model", "Rest After Seconds", 10f,
+                "Seconds of standing still with nothing happening before he folds his wings and settles "
+                + "into his resting stance (0 disables).");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");

@@ -70,6 +70,9 @@ namespace Deathwing.Modules
         private Vector3 lastPosition;
         private bool hasLastPosition;
 
+        /// <summary>When he last did anything: moved, jumped or used a skill. Long enough after, he settles.</summary>
+        private float lastActive;
+
         /// <summary>True while he is walking or standing rather than in a skill's clip.</summary>
         internal bool InLocomotion =>
             !overrideHeld
@@ -94,6 +97,7 @@ namespace Deathwing.Modules
             overrideClip = clip;
             overrideEnd = Time.time + duration;
             overrideHeld = false;
+            lastActive = Time.time;
         }
 
         /// <summary>Loops a clip until <see cref="Release"/> is called, for held and channelled skills.</summary>
@@ -107,6 +111,7 @@ namespace Deathwing.Modules
             overrideClip = clip;
             overrideEnd = 0f;
             overrideHeld = true;
+            lastActive = Time.time;
         }
 
         /// <summary>
@@ -124,6 +129,7 @@ namespace Deathwing.Modules
         {
             overrideHeld = false;
             overrideClip = null;
+            lastActive = Time.time;
 
             if (!string.IsNullOrEmpty(closingClip) && duration > 0f)
             {
@@ -171,7 +177,9 @@ namespace Deathwing.Modules
             string clip = Locomotion(out float speed);
             if (clip != playing)
             {
-                Play(clip, locomotionFade, WrapMode.Loop, 0f);
+                // Settling into or rising out of his rest is a slow shift of his whole weight.
+                bool resting = clip == DeathwingClips.idle || playing == DeathwingClips.idle;
+                Play(clip, resting ? 0.8f : locomotionFade, WrapMode.Loop, 0f);
             }
 
             if (legacyAnimation && legacyAnimation.GetClip(clip) != null)
@@ -228,6 +236,7 @@ namespace Deathwing.Modules
                 : Mathf.Abs(measuredVelocity.y) > 6f;
             if (airborne)
             {
+                lastActive = Time.time;
                 return DeathwingClips.airborne;
             }
 
@@ -235,9 +244,18 @@ namespace Deathwing.Modules
             float groundSpeed = new Vector3(velocity.x, 0f, velocity.z).magnitude;
             if (groundSpeed > 0.6f)
             {
+                lastActive = Time.time;
                 float stride = authoredWalkUnits * Mathf.Max(transform.lossyScale.x, 1e-5f);
                 speed = Mathf.Clamp(groundSpeed / stride * Tuning.walkCycleSpeed.Value, 0.25f, 3f);
                 return DeathwingClips.walk;
+            }
+
+            // Left alone long enough he folds his wings and settles: the rig's relaxed stand, which is
+            // as close to sitting as it has. Anything at all brings him back up to the ready pose.
+            float restAfter = Tuning.restAfter.Value;
+            if (restAfter > 0f && Time.time - lastActive >= restAfter)
+            {
+                return DeathwingClips.idle;
             }
 
             return DeathwingClips.idleReady;
