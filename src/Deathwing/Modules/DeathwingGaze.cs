@@ -77,6 +77,8 @@ namespace Deathwing.Modules
             }
 
             Vector3 up = body.transform.up;
+            Vector3 facing = Facing();
+            Vector3 right = Vector3.Cross(up, facing).normalized;
             for (int i = 0; i < chain.Length; i++)
             {
                 Transform joint = chain[i];
@@ -88,16 +90,29 @@ namespace Deathwing.Modules
                 // Pitch is taken about the direction his gaze has already turned to, so a look to the
                 // side and down nods along the line of sight rather than rolling the head.
                 Quaternion turn = Quaternion.AngleAxis(yaw * chainWeights[i], up);
-                Vector3 right = turn * body.transform.right;
-                joint.rotation = turn * Quaternion.AngleAxis(pitch * chainWeights[i], right) * joint.rotation;
+                joint.rotation = turn * Quaternion.AngleAxis(pitch * chainWeights[i], turn * right) * joint.rotation;
             }
+        }
+
+        /// <summary>
+        /// Which way he is facing. The body's transform never turns - his facing is the direction the
+        /// model is spun to - so it is read from that, not the body.
+        /// </summary>
+        private Vector3 Facing()
+        {
+            if (body.characterDirection)
+            {
+                return body.characterDirection.forward;
+            }
+
+            return transform.forward;
         }
 
         /// <summary>How far off his body's facing the player is aiming, clamped to what a neck can do.</summary>
         private void Aim(out float targetYaw, out float targetPitch)
         {
-            Vector3 aim = body.inputBank ? body.inputBank.aimDirection : body.transform.forward;
-            Vector3 forward = body.transform.forward;
+            Vector3 forward = Facing();
+            Vector3 aim = body.inputBank ? body.inputBank.aimDirection : forward;
             Vector3 up = body.transform.up;
 
             Vector3 flatAim = Vector3.ProjectOnPlane(aim, up);
