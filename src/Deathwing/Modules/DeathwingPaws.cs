@@ -83,9 +83,15 @@ namespace Deathwing.Modules
                 return;
             }
 
-            if (foot.localPosition == pose.setPosition && foot.localRotation == pose.setRotation)
+            // Position and rotation are keyed independently: a clip can drive the one and leave the
+            // other exactly where the last correction put it.
+            if ((foot.localPosition - pose.setPosition).sqrMagnitude < 1e-10f)
             {
                 foot.localPosition = pose.clipPosition;
+            }
+
+            if (Quaternion.Angle(foot.localRotation, pose.setRotation) < 0.01f)
+            {
                 foot.localRotation = pose.clipRotation;
             }
 
