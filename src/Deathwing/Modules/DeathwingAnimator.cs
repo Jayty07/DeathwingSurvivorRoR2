@@ -25,10 +25,13 @@ namespace Deathwing.Modules
         internal const string charge = "Spell C";
         internal const string takeoff = "Spell Z Start";
         internal const string flightLoop = "Spell H";
-        internal const string flightLand = "Spell H End";
+        internal const string flightLand = "Spell Z End";
         internal const string dive = "Spell Z End";
         internal const string airborne = "Spell B";
-        internal const string cataclysm = "Spell J";
+        internal const string slam = "Spell B";
+        internal const string worldBreak = "Spell I";
+        internal const string formShift = "Spell J";
+        internal const string cataclysmChannel = "Spell H Start";
         internal const string death = "Death";
         internal const string taunt = "Taunt";
     }

@@ -60,6 +60,21 @@ namespace Deathwing.Modules
         private bool hidden;
         private float fade = 1f;
 
+        private const string emissionPowerProperty = "_EmPower";
+        private const string emissionColorProperty = "_EmissionColor";
+        private static readonly Color standardEmission = new Color(1f, 0.45f, 0.12f);
+
+        private AspectOfDeath aspect;
+        private int platesSeen = -1;
+        private float silhouetteUntil;
+        private float silhouetteDuration;
+        private float glow = 1f;
+        private ParticleSystem embers;
+        private Vector3 lastFoot;
+        private bool footTracked;
+        private float strideTravelled;
+        private int footSide = 1;
+
         private void OnEnable()
         {
             age = 0f;
@@ -82,6 +97,11 @@ namespace Deathwing.Modules
 
             Fit();
             Dither();
+
+            if (age > assertDuration && ours.Count > 0)
+            {
+                Presence();
+            }
 
             if (age > assertDuration)
             {
@@ -162,6 +182,182 @@ namespace Deathwing.Modules
             {
                 ApplyFade(fade);
             }
+        }
+
+        /// <summary>Flashes him to a lava silhouette for a moment: his cast tell in Heroes of the Storm.</summary>
+        internal void Silhouette(float duration)
+        {
+            silhouetteDuration = duration;
+            silhouetteUntil = Time.time + duration;
+        }
+
+        /// <summary>
+        /// What keeps him looking alive between casts: his seams pulse, embers rise off him, his plates
+        /// coming off shows on his body, and his weight lands in the ground with every step. All of it
+        /// is drawn per client from state every client already has, so nothing here is networked.
+        /// </summary>
+        private void Presence()
+        {
+            CharacterBody body = characterModel ? characterModel.body : null;
+            if (!body)
+            {
+                return;
+            }
+
+            if (!aspect)
+            {
+                aspect = body.GetComponent<AspectOfDeath>();
+            }
+
+            int plates = aspect ? aspect.platesRemaining : AspectOfDeath.maxPlates;
+            if (platesSeen >= 0 && plates != platesSeen)
+            {
+                OnPlatesChanged(platesSeen, plates, body);
+            }
+
+            platesSeen = plates;
+            int lost = AspectOfDeath.maxPlates - plates;
+
+            // A slow breath of light through his seams, brighter the more of his armour is gone: in Heroes
+            // his lava shows through where the plates were.
+            float pulse = 1f + 0.12f * Mathf.Sin(Time.time * 1.7f);
+            float wounded = 1f + 0.3f * lost;
+            float target = pulse * wounded;
+
+            if (Time.time < silhouetteUntil)
+            {
+                float remaining = (silhouetteUntil - Time.time) / Mathf.Max(0.1f, silhouetteDuration);
+                float curve = Mathf.Sin(Mathf.Clamp01(1f - remaining) * Mathf.PI);
+                target += 6f * curve;
+            }
+
+            glow = Mathf.MoveTowards(glow, target, Time.deltaTime * (target > glow ? 30f : 6f));
+            ApplyGlow(glow);
+
+            Embers(body, lost);
+            Footfalls(body);
+        }
+
+        private void ApplyGlow(float amount)
+        {
+            float power = Tuning.modelEmission.Value * amount;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                if (!renderer)
+                {
+                    continue;
+                }
+
+                Material material = renderer.material;
+                if (!material)
+                {
+                    continue;
+                }
+
+                if (material.HasProperty(emissionPowerProperty))
+                {
+                    material.SetFloat(emissionPowerProperty, power);
+                }
+                else if (material.HasProperty(emissionColorProperty))
+                {
+                    material.SetColor(emissionColorProperty, standardEmission * amount);
+                }
+            }
+        }
+
+        /// <summary>A plate coming off is stone breaking; all four coming back is his body flaring.</summary>
+        private void OnPlatesChanged(int before, int after, CharacterBody body)
+        {
+            Vector3 core = body.corePosition;
+            float size = Mathf.Max(1f, Tuning.realModelHeight.Value);
+            if (after < before)
+            {
+                DeathwingRocks.Scatter(body.footPosition, size * 0.35f, 5, size * 0.06f, 6f);
+                DeathwingAssets.SpawnEffectLocal(DeathwingAssets.emberEffect, core, size * 0.25f, 3f);
+                DeathwingEffects.DustPuff(body.footPosition, size * 0.2f);
+                DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.6f, false, 100f);
+            }
+            else if (after == AspectOfDeath.maxPlates)
+            {
+                Silhouette(0.8f);
+            }
+        }
+
+        private void Embers(CharacterBody body, int lost)
+        {
+            if (!Tuning.modelEmbers.Value)
+            {
+                return;
+            }
+
+            if (!embers)
+            {
+                float size = Mathf.Max(1f, Tuning.realModelHeight.Value);
+                Transform root = body.transform;
+                embers = DeathwingEffects.AttachEmbers(root, new Vector3(size * 0.5f, size * 0.7f, size * 0.9f), 6f);
+                if (!embers)
+                {
+                    return;
+                }
+
+                embers.transform.localPosition = Vector3.up * (size * 0.45f);
+                ParticleSystem.MainModule main = embers.main;
+                main.startSize = new ParticleSystem.MinMaxCurve(size * 0.012f, size * 0.03f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(size * 0.05f, size * 0.15f);
+            }
+
+            // Hidden with him, and thicker the more plates he has lost.
+            ParticleSystem.EmissionModule emission = embers.emission;
+            emission.rateOverTime = hidden || fade < 0.5f ? 0f : 6f + 8f * lost;
+        }
+
+        private void Footfalls(CharacterBody body)
+        {
+            if (!Tuning.footfalls.Value || hidden)
+            {
+                footTracked = false;
+                return;
+            }
+
+            Vector3 foot = body.footPosition;
+            if (!footTracked)
+            {
+                footTracked = true;
+                lastFoot = foot;
+                return;
+            }
+
+            Vector3 moved = foot - lastFoot;
+            lastFoot = foot;
+            moved.y = 0f;
+
+            bool grounded = body.characterMotor
+                ? body.characterMotor.isGrounded
+                : Physics.Raycast(foot + Vector3.up * 0.5f, Vector3.down, 1.5f, LayerIndex.world.mask);
+            if (!grounded)
+            {
+                strideTravelled = 0f;
+                return;
+            }
+
+            float size = Mathf.Max(1f, Tuning.realModelHeight.Value);
+            strideTravelled += moved.magnitude;
+            if (strideTravelled < size * 0.45f)
+            {
+                return;
+            }
+
+            strideTravelled = 0f;
+            footSide = -footSide;
+            Vector3 side = body.transform.right * (footSide * size * 0.14f);
+            Vector3 point = foot + side + body.transform.forward * (size * 0.1f);
+            if (Physics.Raycast(point + Vector3.up * 1f, Vector3.down, out RaycastHit hit, 3f, LayerIndex.world.mask))
+            {
+                point = hit.point;
+            }
+
+            DeathwingEffects.DustPuff(point, size * 0.09f, 1.2f);
+            DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.18f, false, 60f);
         }
 
         /// <summary>The local camera looking at this body, if it is the one being played or spectated.</summary>

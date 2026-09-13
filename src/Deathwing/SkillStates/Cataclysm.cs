@@ -7,29 +7,31 @@ using UnityEngine;
 namespace Deathwing.SkillStates
 {
     /// <summary>
-    /// His heroic. Deathwing roots himself, then splits the ground open in expanding rings of fissures,
-    /// leaving the whole area scorched behind them. Each ring is its own blast, so anything caught close
-    /// takes every one of them. In Heroes of the Storm he flies the length of the battlefield to do this;
-    /// a Risk of Rain stage has no lane to fly down, so it is centred on him instead.
+    /// His heroic. Deathwing rears up and calls the ground open in a long lane ahead of him, the way he
+    /// scorches a path down the battlefield in Heroes of the Storm. The lane is shown for the whole
+    /// two-second channel, then erupts away from him in a run of fissures and stays burning behind them.
     /// </summary>
     public class Cataclysm : BaseDeathwingSkillState
     {
         /// <summary>His own two seconds between the call and the ground opening.</summary>
         public static float baseChannelDuration = 2f;
-        public static float baseEruptionDuration = 1.2f;
+        public static float baseEruptionDuration = 1.4f;
         public static float recoveryDuration = 0.6f;
-        public static int ringCount = 3;
-        public static float firstRingRadius = 9f;
-        public static float ringRadiusStep = 8f;
-        public static int fissuresPerRing = 6;
-        public static float ringForce = 2600f;
-        public static float ringShakeMagnitude = 8f;
+        public static float laneLength = 60f;
+        public static float laneWidth = 16f;
+        public static int segments = 8;
+        public static float segmentForce = 2600f;
+        public static float shakeMagnitude = 8f;
 
         private float channelDuration;
         private float eruptionDuration;
-        private int ringsFired;
+        private Vector3 aimDirection;
+        private Vector3 origin;
+        private int segmentsFired;
 
         private bool IsChannelling => fixedAge < channelDuration;
+
+        private float HalfWidth => laneWidth * 0.5f * Mathf.Max(1f, characterScale * 0.6f);
 
         public override void OnEnter()
         {
@@ -38,12 +40,27 @@ namespace Deathwing.SkillStates
             channelDuration = baseChannelDuration;
             eruptionDuration = baseEruptionDuration / attackSpeedStat;
 
+            aimDirection = GetAimRay().direction;
+            aimDirection.y = 0f;
+            aimDirection = aimDirection.sqrMagnitude > 0.001f ? aimDirection.normalized : transform.forward;
+            if (characterDirection)
+            {
+                characterDirection.forward = aimDirection;
+            }
+
+            origin = GroundPosition(characterBody ? characterBody.footPosition : transform.position);
+
             characterBody.AddTimedBuff(Buffs.elementiumPlating, channelDuration + eruptionDuration);
+            characterBody.SetAimTimer(channelDuration + eruptionDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
             DeathwingVoice.Play(DeathwingVoice.bellowingRoar, gameObject, 1f, false, 120f);
-            PlayDragonAnimation(DeathwingClips.cataclysm, channelDuration,
+            PlayDragonAnimation(DeathwingClips.cataclysmChannel, channelDuration,
                 "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
+            dragonModel?.Silhouette(channelDuration);
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 4f * characterScale, gameObject);
+
+            DeathwingEffects.Telegraph(GroundPosition(origin + aimDirection * 3f), HalfWidth, channelDuration,
+                aimDirection, laneLength);
         }
 
         public override void FixedUpdate()
@@ -59,12 +76,12 @@ namespace Deathwing.SkillStates
 
             if (!IsChannelling)
             {
-                float eruptionProgress = Mathf.Clamp01((fixedAge - channelDuration) / eruptionDuration);
-                int ringsWanted = Mathf.Min(ringCount, Mathf.FloorToInt(eruptionProgress * ringCount) + 1);
-                while (ringsFired < ringsWanted)
+                float progress = Mathf.Clamp01((fixedAge - channelDuration) / eruptionDuration);
+                int wanted = Mathf.Min(segments, Mathf.FloorToInt(progress * segments) + 1);
+                while (segmentsFired < wanted)
                 {
-                    FireRing(ringsFired);
-                    ringsFired++;
+                    FireSegment(segmentsFired);
+                    segmentsFired++;
                 }
             }
 
@@ -74,36 +91,28 @@ namespace Deathwing.SkillStates
             }
         }
 
-        private void FireRing(int ringIndex)
+        private void FireSegment(int index)
         {
-            float radius = firstRingRadius + ringRadiusStep * ringIndex;
-            Vector3 center = GroundPosition(transform.position);
+            float step = laneLength / segments;
+            float distance = step * (index + 0.5f);
+            Vector3 center = GroundPosition(origin + aimDirection * distance, 60f);
+            float halfWidth = HalfWidth;
 
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
             DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 1f, false, 140f);
-            ShakeCamera(center, ringShakeMagnitude, 0.6f, radius + 40f);
+            DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, center, 4f, gameObject);
 
-            for (int i = 0; i < fissuresPerRing; i++)
+            // Two side fissures per segment so the lane reads as a torn strip rather than a line of pits.
+            Vector3 across = Vector3.Cross(Vector3.up, aimDirection);
+            for (int side = -1; side <= 1; side += 2)
             {
-                float angle = (360f / fissuresPerRing) * i + ringIndex * 18f;
-                Vector3 offset = Quaternion.Euler(0f, angle, 0f) * (Vector3.forward * radius);
-                Vector3 fissure = GroundPosition(center + offset);
-                DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, fissure, 3.5f, gameObject);
+                Vector3 edge = GroundPosition(center + across * (halfWidth * 0.6f * side), 60f);
+                DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, edge, 2.5f, gameObject);
+            }
 
-                // Every fissure leaves burning ground, so the whole area stays denied after the rings
-                // have gone off rather than only the outermost one.
-                if (isAuthority && Projectiles.lavaPool)
-                {
-                    ProjectileManager.instance.FireProjectile(
-                        Projectiles.lavaPool,
-                        fissure,
-                        Quaternion.identity,
-                        gameObject,
-                        damageStat * Projectiles.lavaPoolDamageCoefficient,
-                        0f,
-                        RollCrit(),
-                        DamageColorIndex.Item);
-                }
+            if (index == 0)
+            {
+                ShakeCamera(center, shakeMagnitude, 0.6f, laneLength + 40f);
             }
 
             if (!isAuthority)
@@ -111,10 +120,27 @@ namespace Deathwing.SkillStates
                 return;
             }
 
-            // Ring damage is modelled as a filled blast at the ring radius; the inner rings already
-            // covered the ground closer to Deathwing.
-            BlastAttack blast = CreateFireBlast(center, radius, Tuning.heroicCataclysmDamageCoefficient.Value, ringForce);
-            blast.bonusForce = Vector3.up * (ringForce * 0.5f);
+            DeathwingEffects.SpawnShockwave(center, halfWidth * 1.2f, 3f, gameObject, true);
+            DeathwingEffects.SpawnGroundFire(center, halfWidth, 6f, gameObject, aimDirection, step);
+
+            if (Projectiles.lavaPool)
+            {
+                ProjectileManager.instance.FireProjectile(
+                    Projectiles.lavaPool,
+                    center,
+                    Quaternion.identity,
+                    gameObject,
+                    damageStat * Projectiles.lavaPoolDamageCoefficient,
+                    0f,
+                    RollCrit(),
+                    DamageColorIndex.Item);
+            }
+
+            // Each segment is its own blast covering its stretch of the lane; a segment radius a little
+            // over the half-width leaves no seams between neighbours.
+            BlastAttack blast = CreateFireBlast(center, Mathf.Max(halfWidth, step * 0.75f),
+                Tuning.heroicCataclysmDamageCoefficient.Value, segmentForce);
+            blast.bonusForce = Vector3.up * (segmentForce * 0.5f);
             blast.Fire();
         }
 

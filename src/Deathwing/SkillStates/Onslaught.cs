@@ -28,6 +28,9 @@ namespace Deathwing.SkillStates
         private bool bitten;
 
         private bool IsLunging => fixedAge >= windupDuration && fixedAge < windupDuration + lungeDuration;
+        private ParticleSystem trail;
+        private ParticleSystem trailSmoke;
+        private float nextScorch;
 
         public override void OnEnter()
         {
@@ -63,6 +66,7 @@ namespace Deathwing.SkillStates
             Util.PlaySound(Sounds.chargeStart, gameObject);
             DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.85f);
             PlayDragonAnimation(DeathwingClips.chargeStart, windupDuration, "Body", "Sprint");
+            dragonModel?.Silhouette(windupDuration);
         }
 
         public override void FixedUpdate()
@@ -93,9 +97,19 @@ namespace Deathwing.SkillStates
                     characterDirection.forward = lungeDirection;
                 }
 
+                Trail();
+
                 if (isAuthority)
                 {
                     attack?.Fire();
+
+                    // Burning ground left behind the lunge, a patch every half body length.
+                    if (fixedAge >= nextScorch)
+                    {
+                        nextScorch = fixedAge + 0.12f;
+                        DeathwingEffects.SpawnGroundFire(
+                            GroundPosition(characterBody.footPosition), 2.2f * characterScale, 1.8f, gameObject);
+                    }
                 }
             }
             else if (!bitten)
@@ -116,8 +130,15 @@ namespace Deathwing.SkillStates
                 + lungeDirection * (2f * characterScale);
 
             Util.PlaySound(Sounds.clawSlam, gameObject);
+            DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 0.7f, false, 90f);
             DeathwingAssets.SpawnEffect(DeathwingAssets.explosionEffect, mouth, 2f * characterScale, gameObject);
-            ShakeCamera(mouth, 6f, 0.3f, 40f);
+            EndTrail();
+
+            if (isAuthority)
+            {
+                // The bite lands like a hammer: dust and stone thrown out in front of him.
+                DeathwingEffects.SpawnShockwave(GroundPosition(mouth), biteRadius * characterScale * 1.4f, 6f, gameObject);
+            }
 
             if (characterMotor)
             {
@@ -133,6 +154,42 @@ namespace Deathwing.SkillStates
                 mouth, biteRadius * characterScale, Tuning.onslaughtBiteDamageCoefficient.Value, biteForce);
             blast.damageType = DamageType.IgniteOnHit | DamageType.SlowOnHit;
             blast.Fire();
+        }
+
+        /// <summary>Fire and smoke streaming off him for the length of the lunge, on every client.</summary>
+        private void Trail()
+        {
+            if (trail || !characterBody)
+            {
+                return;
+            }
+
+            float size = characterBody.radius * 2f;
+            trail = DeathwingEffects.AttachFlames(characterBody.transform, size, 0f, 1.6f);
+            trailSmoke = DeathwingEffects.AttachSmoke(characterBody.transform, size, 0f, 24f);
+        }
+
+        private void EndTrail()
+        {
+            if (trail)
+            {
+                trail.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                Object.Destroy(trail.gameObject, 2f);
+                trail = null;
+            }
+
+            if (trailSmoke)
+            {
+                trailSmoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                Object.Destroy(trailSmoke.gameObject, 4f);
+                trailSmoke = null;
+            }
+        }
+
+        public override void OnExit()
+        {
+            EndTrail();
+            base.OnExit();
         }
 
         public override void OnSerialize(NetworkWriter writer)

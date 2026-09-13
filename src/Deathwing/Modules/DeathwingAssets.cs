@@ -314,7 +314,7 @@ namespace Deathwing.Modules
             return material;
         }
 
-        private static void TrySetColor(Material material, string property, Color value)
+        internal static void TrySetColor(Material material, string property, Color value)
         {
             if (material.HasProperty(property))
             {

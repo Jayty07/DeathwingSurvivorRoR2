@@ -36,8 +36,11 @@ namespace Deathwing.SkillStates
             PlayDragonAnimation(DeathwingClips.boulder, delayDuration, "Gesture, Override", "ThrowGrenade",
                 "ThrowGrenade.playbackRate");
 
-            // The ground cracks for the second before it opens, so it can be stepped out of.
+            // The ground cracks for the second before it opens, so it can be stepped out of: a molten ring
+            // closing on the exact area, as the Heroes telegraph does.
             DeathwingAssets.SpawnEffect(DeathwingAssets.emberEffect, target, 3f, gameObject);
+            DeathwingEffects.Telegraph(target, impactRadius * characterScale, delayDuration);
+            dragonModel?.Silhouette(delayDuration);
         }
 
         public override void FixedUpdate()
@@ -73,12 +76,13 @@ namespace Deathwing.SkillStates
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
             DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 0.9f, false, 100f);
             DeathwingAssets.SpawnEffect(DeathwingAssets.eruptionEffect, target, 4f, gameObject);
-            ShakeCamera(target, 6f, 0.4f, impactRadius + 40f);
-
             if (!isAuthority)
             {
                 return;
             }
+
+            // The rock bursting: a ring of dust and stone thrown out past the pool's own edge.
+            DeathwingEffects.SpawnShockwave(target, impactRadius * characterScale * 1.3f, 6f, gameObject);
 
             BlastAttack blast = CreateFireBlast(
                 target, impactRadius * characterScale, Tuning.lavaBurstDamageCoefficient.Value, force);

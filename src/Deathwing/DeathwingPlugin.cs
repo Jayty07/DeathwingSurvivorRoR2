@@ -28,6 +28,7 @@ namespace Deathwing
             Tuning.Init(Config);
             Tokens.Init();
             DeathwingAssets.Init();
+            DeathwingEffects.Init();
             Buffs.Init();
             Projectiles.Init();
             DeathwingSurvivor.Init();

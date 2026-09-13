@@ -47,6 +47,9 @@ namespace Deathwing.SkillStates
         private GameObject jet;
         private bool jetSpawned;
         private DeathwingVoice.Voice voice;
+        private ParticleSystem intake;
+        private float trenchStopwatch;
+        private const float trenchInterval = 0.3f;
 
         public override void OnEnter()
         {
@@ -61,6 +64,15 @@ namespace Deathwing.SkillStates
             DeathwingVoice.Play(DeathwingVoice.flameBreath, gameObject);
             PlayDragonAnimation(DeathwingClips.breathStart, windupDuration,
                 "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
+
+            // The breath being drawn: embers pulled in to his jaws through the windup, and his seams
+            // lighting up, so the second and a half reads as him gathering the flame rather than waiting.
+            dragonModel?.Silhouette(windupDuration);
+            intake = DeathwingEffects.AttachIntake(null, 5f * characterScale, 90f);
+            if (intake)
+            {
+                intake.transform.position = Mouth();
+            }
         }
 
         public override void FixedUpdate()
@@ -80,12 +92,18 @@ namespace Deathwing.SkillStates
 
             if (fixedAge < windupDuration)
             {
+                if (intake)
+                {
+                    intake.transform.position = Mouth();
+                }
+
                 return;
             }
 
             if (!windupFinished)
             {
                 windupFinished = true;
+                EndIntake();
                 Util.PlaySound(Sounds.breathLoop, gameObject);
                 voice = DeathwingVoice.Play(DeathwingVoice.flameLoop, gameObject, 0.85f, true);
                 StartJet();
@@ -178,6 +196,17 @@ namespace Deathwing.SkillStates
                 return;
             }
 
+            // Where the flame meets the ground it stays lit: a trench of fire that follows the sweep.
+            trenchStopwatch += tickInterval;
+            if (trenchStopwatch >= trenchInterval)
+            {
+                trenchStopwatch = 0f;
+                if (Physics.Raycast(aimRay, out RaycastHit hit, range, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+                {
+                    DeathwingEffects.SpawnGroundFire(hit.point, 3.2f * characterScale, 2.5f, gameObject);
+                }
+            }
+
             float tickCoefficient = Tuning.moltenFlameDamageCoefficient.Value * tickInterval;
 
             // Overlapping blasts walked along the aim ray approximate a cone: each is placed further
@@ -254,10 +283,21 @@ namespace Deathwing.SkillStates
             jet.transform.rotation = Quaternion.LookRotation(GetAimRay().direction);
         }
 
+        private void EndIntake()
+        {
+            if (intake)
+            {
+                intake.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                UnityEngine.Object.Destroy(intake.gameObject, 1f);
+                intake = null;
+            }
+        }
+
         public override void OnExit()
         {
             Util.PlaySound(Sounds.breathStop, gameObject);
             DeathwingVoice.Stop(voice);
+            EndIntake();
 
             if (dragon)
             {

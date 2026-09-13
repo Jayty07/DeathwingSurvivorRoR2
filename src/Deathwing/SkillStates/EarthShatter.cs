@@ -43,8 +43,19 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(windupDuration + travelDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
             DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.9f);
-            PlayDragonAnimation(DeathwingClips.cataclysm, windupDuration, "Gesture, Override", "ThrowGrenade",
+            PlayDragonAnimation(DeathwingClips.worldBreak, windupDuration + travelDuration + recoveryDuration, "Gesture, Override", "ThrowGrenade",
                 "ThrowGrenade.playbackRate");
+            dragonModel?.Silhouette(windupDuration);
+
+            // Both lines shown on the ground for the windup, so the two fissures can be read and stepped
+            // between as they can in Heroes.
+            Vector3 foot = characterBody ? characterBody.footPosition : transform.position;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 direction = Quaternion.Euler(0f, fissureSpread * side, 0f) * aimDirection;
+                DeathwingEffects.Telegraph(GroundPosition(foot + direction * 2f), segmentRadius * characterScale * 0.5f,
+                    windupDuration, direction, fissureLength);
+            }
         }
 
         public override void FixedUpdate()
@@ -93,6 +104,13 @@ namespace Deathwing.SkillStates
                     continue;
                 }
 
+                // The crack itself: a strip of burning, broken ground from the last point to this one,
+                // so the fissure is a line that stays lit rather than a row of separate bursts.
+                float step = fissureLength / segmentsPerFissure;
+                Vector3 previous = GroundPosition(origin + direction * (distance - step), 60f);
+                DeathwingEffects.SpawnGroundFire(previous, segmentRadius * characterScale * 0.45f, 4f, gameObject,
+                    direction, step);
+
                 BlastAttack blast = CreateFireBlast(
                     point,
                     segmentRadius * characterScale,
@@ -107,7 +125,10 @@ namespace Deathwing.SkillStates
             {
                 Util.PlaySound(Sounds.cataclysmErupt, gameObject);
                 DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 1f, false, 100f);
-                ShakeCamera(origin, 7f, 0.5f, fissureLength + 30f);
+                if (isAuthority)
+                {
+                    DeathwingEffects.SpawnShockwave(GroundPosition(origin), 8f * characterScale, 7f, gameObject);
+                }
             }
         }
 

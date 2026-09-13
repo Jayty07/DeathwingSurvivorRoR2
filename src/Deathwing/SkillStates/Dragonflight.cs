@@ -51,6 +51,9 @@ namespace Deathwing.SkillStates
             PlayDragonAnimation(DeathwingClips.takeoff, takeoffDuration, "Body", "Jump");
             DeathwingAssets.SpawnEffect(
                 DeathwingAssets.roarEffect, transform.position, 1.6f * characterScale, gameObject);
+
+            // He lights up from the inside through the whole windup, his takeoff tell in Heroes.
+            dragonModel?.Silhouette(takeoffDuration);
         }
 
         public override void FixedUpdate()
@@ -84,6 +87,12 @@ namespace Deathwing.SkillStates
                 // Out of the fight and out of sight the moment the takeoff finishes, as his flight does
                 // in Heroes of the Storm: he is gone, not a dragon hovering overhead.
                 SetModelHidden(true);
+
+                // The downdraft of him leaving: dust thrown out from where he stood.
+                if (isAuthority)
+                {
+                    DeathwingEffects.SpawnShockwave(characterBody.footPosition, 10f * characterScale, 2f, gameObject);
+                }
 
                 if (dragon)
                 {

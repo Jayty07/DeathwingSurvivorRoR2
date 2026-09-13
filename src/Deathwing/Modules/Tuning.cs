@@ -27,6 +27,9 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> cameraPivotHeight;
         internal static ConfigEntry<bool> cameraDither;
         internal static ConfigEntry<float> cameraDitherDistance;
+        internal static ConfigEntry<float> cameraShake;
+        internal static ConfigEntry<bool> modelEmbers;
+        internal static ConfigEntry<bool> footfalls;
         internal static ConfigEntry<bool> dropPod;
         internal static ConfigEntry<bool> realModelVoice;
         internal static ConfigEntry<float> realModelVoiceVolume;
@@ -118,6 +121,12 @@ namespace Deathwing.Modules
                 + "tight spaces. Your own view only - other players still see him whole.");
             cameraDitherDistance = config.Bind("Model", "Camera Dither Distance", 0.01f,
                 "Metres from his geometry at which that fade begins. He is gone by a quarter of it.");
+            cameraShake = config.Bind("Effects", "Camera Shake", 1f,
+                "Multiplier on the camera kick his impacts give to anyone standing near them. 0 turns it off.");
+            modelEmbers = config.Bind("Effects", "Model Embers", true,
+                "Embers drifting up off his lava seams, thickening as his plates come off.");
+            footfalls = config.Bind("Effects", "Footfalls", true,
+                "Dust and a stone thud under his feet as he walks.");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using RoR2;
 using UnityEngine;
 
@@ -17,6 +18,10 @@ namespace Deathwing.Modules
         private static readonly List<DeathwingVoice.Voice> playing = new List<DeathwingVoice.Voice>();
 
         private static DeathwingVoiceMixer instance;
+
+        /// <summary>Master times SFX from the game's own sliders, re-read a few times a second.</summary>
+        private static float gameVolume = 1f;
+        private static float nextVolumeRead;
 
         /// <summary>Takes over a voice, keeping it mixed until it ends or is stopped.</summary>
         internal static void Add(DeathwingVoice.Voice voice)
@@ -62,6 +67,12 @@ namespace Deathwing.Modules
 
         private void Update()
         {
+            if (Time.unscaledTime >= nextVolumeRead)
+            {
+                nextVolumeRead = Time.unscaledTime + 0.25f;
+                gameVolume = ReadGameVolume();
+            }
+
             Transform listener = ListenerTransform();
             for (int i = playing.Count - 1; i >= 0; i--)
             {
@@ -96,9 +107,42 @@ namespace Deathwing.Modules
             return camera ? camera.transform : null;
         }
 
+        /// <summary>
+        /// The in-game volume sliders, so his sounds follow them like everything Wwise plays. The convars
+        /// hold the slider positions as 0-100 strings; anything unreadable leaves the last good value.
+        /// </summary>
+        private static float ReadGameVolume()
+        {
+            float master = SliderFraction(AudioManager.cvVolumeMaster, 1f);
+            float sfx = SliderFraction(AudioManager.cvVolumeSfx, 1f);
+            return Mathf.Clamp01(master * sfx);
+        }
+
+        private static float SliderFraction(AudioManager.VolumeConVar convar, float fallback)
+        {
+            if (convar == null)
+            {
+                return fallback;
+            }
+
+            try
+            {
+                string text = convar.GetString();
+                if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float value))
+                {
+                    return Mathf.Clamp01(value / 100f);
+                }
+            }
+            catch (System.Exception)
+            {
+            }
+
+            return fallback;
+        }
+
         private static void Mix(DeathwingVoice.Voice voice, Transform listener)
         {
-            float level = voice.volume;
+            float level = voice.volume * gameVolume;
             float pan = 0f;
 
             if (listener)

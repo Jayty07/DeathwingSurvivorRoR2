@@ -100,8 +100,19 @@ namespace Deathwing.SkillStates
             }
 
             Util.PlaySound(Sounds.wingFlap, gameObject);
+            Util.PlaySound(Sounds.diveImpact, gameObject);
             DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 0.7f, false, 110f);
-            ShakeCamera(transform.position, 6f, 0.4f, 40f);
+
+            // The landing in Heroes: the ground gives under him, a ring of dust races out and the
+            // rock is left cracked and smouldering where he came down.
+            if (isAuthority)
+            {
+                Vector3 ground = characterBody.footPosition;
+                DeathwingEffects.SpawnShockwave(ground, 14f * characterScale, 8f, gameObject);
+                DeathwingEffects.SpawnGroundFire(ground, 5f * characterScale, 3f, gameObject);
+            }
+
+            dragonModel?.Silhouette(0.6f);
         }
 
         public override void OnExit()

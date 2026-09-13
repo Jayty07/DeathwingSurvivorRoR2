@@ -16,7 +16,6 @@ namespace Deathwing.SkillStates
         public static float recoveryDuration = 0.35f;
         public static float radius = 13f;
         public static float force = 2200f;
-        public static int flameCount = 8;
 
         private float windupDuration;
         private bool fired;
@@ -29,8 +28,9 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(windupDuration + recoveryDuration);
             Util.PlaySound(Sounds.chargeStart, gameObject);
             DeathwingVoice.Play(DeathwingVoice.roar, gameObject, 0.8f);
-            PlayDragonAnimation(DeathwingClips.chargeStart, windupDuration, "Gesture, Override", "ThrowGrenade",
+            PlayDragonAnimation(DeathwingClips.slam, (windupDuration + recoveryDuration) * 1.1f, "Gesture, Override", "ThrowGrenade",
                 "ThrowGrenade.playbackRate");
+            dragonModel?.Silhouette(windupDuration);
         }
 
         public override void FixedUpdate()
@@ -56,22 +56,18 @@ namespace Deathwing.SkillStates
 
             Util.PlaySound(Sounds.cataclysmErupt, gameObject);
             DeathwingAssets.SpawnEffect(DeathwingAssets.explosionEffect, center, 2.5f * characterScale, gameObject);
-            ShakeCamera(center, 5f, 0.35f, scaledRadius + 30f);
-
-            // A ring of flame at his own feet, so the burst reads as the ground going up rather than as
-            // one explosion sitting inside him.
-            for (int i = 0; i < flameCount; i++)
-            {
-                float angle = 360f / flameCount * i;
-                Vector3 offset = Quaternion.Euler(0f, angle, 0f) * (Vector3.forward * (scaledRadius * 0.7f));
-                DeathwingAssets.SpawnEffect(
-                    DeathwingAssets.fireImpactEffect, GroundPosition(center + offset), 2.4f, gameObject);
-            }
+            Util.PlaySound(Sounds.breathStart, gameObject);
 
             if (!isAuthority)
             {
                 return;
             }
+
+            // As in Heroes: a wall of flame racing out from him to the edge of the area, and the ground
+            // inside it left burning. The shockwave carries the camera kick for anyone nearby.
+            Vector3 ground = GroundPosition(center);
+            DeathwingEffects.SpawnShockwave(ground, scaledRadius, 5f, gameObject, true);
+            DeathwingEffects.SpawnGroundFire(ground, scaledRadius * 0.85f, 2.5f, gameObject);
 
             BlastAttack blast = CreateFireBlast(
                 center, scaledRadius, Tuning.incinerateDamageCoefficient.Value, force);
