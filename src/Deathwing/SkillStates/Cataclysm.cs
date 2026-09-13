@@ -23,11 +23,11 @@ namespace Deathwing.SkillStates
         public static float segmentForce = 2600f;
         public static float shakeMagnitude = 8f;
         /// <summary>
-        /// The channel is Dragonflight's own takeoff, planted through its first stretch and lifting off
-        /// through the rest at the same point that flight does; the climb has him this high (pre-scale)
-        /// by its end, low enough to still read as skimming the field.
+        /// The rear-up clip has him planted through its first stretch and throws him skyward late in
+        /// it; the climb starts at this fraction of the channel and has him this high (pre-scale) by
+        /// its end, low enough to still read as skimming the field.
         /// </summary>
-        public static float climbStartFraction = Dragonflight.liftStartFraction;
+        public static float climbStartFraction = 0.6f;
         public static float climbHeight = 6f;
         public static float descentSpeed = 45f;
         public static float maxDescentDuration = 8f;
@@ -61,7 +61,7 @@ namespace Deathwing.SkillStates
         {
             base.OnEnter();
             // Flat, not scaled by attack speed: his figure, and the telegraph is the point.
-            channelDuration = Dragonflight.takeoffDuration;
+            channelDuration = baseChannelDuration;
             flightDuration = baseFlightDuration;
 
             aimDirection = GetAimRay().direction;
@@ -78,7 +78,7 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(channelDuration + flightDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
             DeathwingVoice.Play(DeathwingVoice.bellowingRoar, gameObject, 1f, false, 120f);
-            PlayDragonAnimation(DeathwingClips.takeoff, channelDuration,
+            PlayDragonAnimation(DeathwingClips.cataclysmChannel, channelDuration,
                 "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
             dragonModel?.Silhouette(channelDuration);
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 4f * characterScale, gameObject);
