@@ -30,9 +30,14 @@ namespace Deathwing.Modules
 
         private readonly bool loop;
 
+        /// <summary>Output frames the start is eased in over, so a clip cannot open with a click.</summary>
+        private const int attackFrames = 240;
+
         private double position;
-        private float left = 1f;
-        private float right = 1f;
+        private int mixed;
+        // Silent until the mixer has levelled it for distance, never at unit gain by default.
+        private float left;
+        private float right;
 
         private WaveVoice(byte[] pcm, int channels, int rate, bool loop)
         {
@@ -108,9 +113,11 @@ namespace Deathwing.Modules
                 float mono = BitConverter.ToInt16(pcm, sample * 2) / 32768f;
                 float other = channels > 1 ? BitConverter.ToInt16(pcm, (sample + 1) * 2) / 32768f : mono;
 
-                output[i] += mono * left;
-                output[i + 1] += other * right;
+                float attack = mixed < attackFrames ? mixed / (float)attackFrames : 1f;
+                output[i] += mono * left * attack;
+                output[i + 1] += other * right * attack;
                 position += step;
+                mixed++;
             }
         }
 

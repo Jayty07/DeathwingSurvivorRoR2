@@ -43,6 +43,9 @@ namespace Deathwing.Modules
                 Remove(playing[index < 0 ? 0 : index]);
             }
 
+            // Levelled before the output thread can pick it up: a voice that starts at unit gain and is
+            // only attenuated on the next frame opens with a spike.
+            Mix(voice, ListenerTransform());
             playing.Add(voice);
         }
 
