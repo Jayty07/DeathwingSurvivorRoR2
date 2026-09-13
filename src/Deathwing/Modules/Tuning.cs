@@ -22,6 +22,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
         internal static ConfigEntry<float> walkCycleSpeed;
+        internal static ConfigEntry<float> pawFlatten;
         internal static ConfigEntry<float> extraRowGap;
         internal static ConfigEntry<float> cameraDistance;
         internal static ConfigEntry<float> cameraPivotHeight;
@@ -101,7 +102,7 @@ namespace Deathwing.Modules
                 "Hand the real model to the game's character model system, which draws elite, burn and "
                 + "cloak overlays on it and dissolves it on death - at the cost of also subjecting it to "
                 + "the spawn print effect, which can leave it clipped away entirely.");
-            realModelLift = config.Bind("Model", "Real Model Lift", 0f,
+            realModelLift = config.Bind("Model", "Real Model Lift", -1f,
                 "Extra metres to raise the real model after its feet have been placed on the ground. "
                 + "Negative values sink him.");
             dropPod = config.Bind("Model", "Drop Pod", false,
@@ -127,6 +128,9 @@ namespace Deathwing.Modules
                 "Embers drifting up off his lava seams, thickening as his plates come off.");
             footfalls = config.Bind("Effects", "Footfalls", true,
                 "Dust and a stone thud under his feet as he walks.");
+            pawFlatten = config.Bind("Model", "Front Paw Flatten", 1f,
+                "How far his front paws are levelled onto the ground while he stands and walks (0 leaves the "
+                + "rig's claw-tip stance, 1 puts the whole palm down).");
             walkCycleSpeed = config.Bind("Model", "Walk Cycle Speed", 1f,
                 "Multiplier on how fast his walk animation plays. The stride he covers is worked out from "
                 + "his size, so 1 keeps his feet in step with the ground; raise it for a faster gait.");

@@ -70,6 +70,12 @@ namespace Deathwing.Modules
         private Vector3 lastPosition;
         private bool hasLastPosition;
 
+        /// <summary>True while he is walking or standing rather than in a skill's clip.</summary>
+        internal bool InLocomotion =>
+            !overrideHeld
+            && string.IsNullOrEmpty(overrideClip)
+            && (playing == DeathwingClips.walk || playing == DeathwingClips.idleReady || playing == DeathwingClips.idle);
+
         private void Awake()
         {
             legacyAnimation = GetComponent<Animation>();

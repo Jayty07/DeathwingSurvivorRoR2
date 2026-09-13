@@ -16,6 +16,12 @@ namespace Deathwing.SkillStates
         /// <summary>Ceiling on the drop, so a flight that ends over a hole cannot strand the state.</summary>
         public static float maxDescentDuration = 8f;
         public static float minLandingDuration = 0.4f;
+        /// <summary>
+        /// The drop has to be under way before the ground counts. Stepping out of flight the motor is
+        /// still reporting the last step it ran, so an immediate check lands him in the air.
+        /// </summary>
+        public static float minDescentDuration = 0.15f;
+        public static float remoteGroundProbe = 1.5f;
 
         private float landingDuration = minLandingDuration;
         private float landedAt;
@@ -52,7 +58,7 @@ namespace Deathwing.SkillStates
                     characterMotor.moveDirection = Vector3.zero;
                 }
 
-                if ((characterMotor && characterMotor.isGrounded) || fixedAge >= maxDescentDuration)
+                if ((fixedAge >= minDescentDuration && TouchingGround()) || fixedAge >= maxDescentDuration)
                 {
                     Land();
                 }
@@ -71,6 +77,32 @@ namespace Deathwing.SkillStates
             {
                 outer.SetNextStateToMain();
             }
+        }
+
+        /// <summary>
+        /// Whether he has come down on something. The owning machine asks the motor; on every other
+        /// client the motor is not stepped at all and its grounded flag is stale, so the ground is
+        /// probed under his feet instead - otherwise the landing beat plays the instant flight ends.
+        /// </summary>
+        private bool TouchingGround()
+        {
+            if (!characterMotor)
+            {
+                return false;
+            }
+
+            if (characterMotor.hasEffectiveAuthority)
+            {
+                return characterMotor.isGrounded;
+            }
+
+            Vector3 feet = characterBody ? characterBody.footPosition : transform.position;
+            return Physics.Raycast(
+                feet + Vector3.up * 0.5f,
+                Vector3.down,
+                remoteGroundProbe * Mathf.Max(characterScale, 1f),
+                LayerIndex.world.mask,
+                QueryTriggerInteraction.Ignore);
         }
 
         private void Land()

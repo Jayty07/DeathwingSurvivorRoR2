@@ -293,6 +293,7 @@ namespace Deathwing.Modules
             if (characterModel)
             {
                 characterModel.itemDisplayRuleSet = null;
+                modelTransform.gameObject.AddComponent<DeathwingItemDisplayHider>();
             }
         }
 

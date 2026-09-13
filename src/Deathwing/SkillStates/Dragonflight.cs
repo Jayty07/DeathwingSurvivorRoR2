@@ -17,6 +17,13 @@ namespace Deathwing.SkillStates
         /// <summary>His own takeoff: three seconds of beating his wings before he is clear.</summary>
         public static float takeoffDuration = 3f;
         public static float hoverDrift = -0.6f;
+        /// <summary>
+        /// The takeoff clip stands him for its first half and rears him skyward through the second. His
+        /// body follows: planted until this fraction of the windup, then climbing, building to this
+        /// speed (pre-scale) as the clip ends and he vanishes.
+        /// </summary>
+        public static float liftStartFraction = 0.55f;
+        public static float liftSpeed = 9f;
         /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
         public static float landDelay = 0.5f;
         public static float fireballSpeed = 90f;
@@ -28,6 +35,7 @@ namespace Deathwing.SkillStates
         private float healStopwatch;
         private float fireStopwatch;
         private bool airborne;
+        private bool lifting;
         private bool wantsToDive;
         private bool wantsToLand;
 
@@ -36,8 +44,7 @@ namespace Deathwing.SkillStates
             base.OnEnter();
             maxDuration = takeoffDuration + Tuning.dragonflightDuration.Value;
 
-            // He stays on the ground for the whole windup: the three seconds are him beating his wings
-            // to get clear, and lifting him through them fights the clip, which is drawn standing.
+            // Held still for the windup; the climb through its second half is FlightVelocity's.
             if (characterMotor)
             {
                 characterMotor.disableAirControlUntilCollision = false;
@@ -276,10 +283,32 @@ namespace Deathwing.SkillStates
         /// <summary>Climbs on takeoff, then steers with the camera; hold still to hover.</summary>
         private Vector3 FlightVelocity()
         {
-            // Planted through the windup: only whatever gravity is doing to him is kept.
             if (!airborne)
             {
-                return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
+                float liftStart = takeoffDuration * liftStartFraction;
+                if (fixedAge < liftStart)
+                {
+                    // Planted through the first half of the windup: only whatever gravity is doing to
+                    // him is kept.
+                    return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
+                }
+
+                if (!lifting)
+                {
+                    lifting = true;
+                    characterMotor.useGravity = false;
+                    if (characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+
+                    DeathwingEffects.DustPuff(characterBody.footPosition, 6f * characterScale);
+                }
+
+                // Wings taking his weight: the climb builds through the rest of the clip rather than
+                // snapping him off the ground.
+                float climb = Mathf.InverseLerp(liftStart, takeoffDuration, fixedAge);
+                return Vector3.up * (liftSpeed * characterScale * climb * climb);
             }
 
             Vector3 velocity = Vector3.up * hoverDrift;
