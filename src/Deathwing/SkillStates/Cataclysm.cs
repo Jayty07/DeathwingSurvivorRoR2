@@ -23,12 +23,12 @@ namespace Deathwing.SkillStates
         public static float segmentForce = 2600f;
         public static float shakeMagnitude = 8f;
         /// <summary>
-        /// The rear-up clip has him planted through its first stretch and throws him skyward through the
-        /// rest; the climb starts at this fraction of the channel and has him this high (pre-scale) by
-        /// its end.
+        /// The channel is Dragonflight's own takeoff, planted through its first stretch and lifting off
+        /// through the rest at the same point that flight does; the climb has him this high (pre-scale)
+        /// by its end, low enough to still read as skimming the field.
         /// </summary>
-        public static float climbStartFraction = 0.4f;
-        public static float climbHeight = 11f;
+        public static float climbStartFraction = Dragonflight.liftStartFraction;
+        public static float climbHeight = 6f;
         public static float descentSpeed = 45f;
         public static float maxDescentDuration = 8f;
         public static float minDescentDuration = 0.15f;
@@ -61,7 +61,7 @@ namespace Deathwing.SkillStates
         {
             base.OnEnter();
             // Flat, not scaled by attack speed: his figure, and the telegraph is the point.
-            channelDuration = baseChannelDuration;
+            channelDuration = Dragonflight.takeoffDuration;
             flightDuration = baseFlightDuration;
 
             aimDirection = GetAimRay().direction;
@@ -78,7 +78,7 @@ namespace Deathwing.SkillStates
             characterBody.SetAimTimer(channelDuration + flightDuration);
             Util.PlaySound(Sounds.cataclysmChannel, gameObject);
             DeathwingVoice.Play(DeathwingVoice.bellowingRoar, gameObject, 1f, false, 120f);
-            PlayDragonAnimation(DeathwingClips.cataclysmChannel, channelDuration,
+            PlayDragonAnimation(DeathwingClips.takeoff, channelDuration,
                 "Gesture, Override", "ThrowGrenade", "ThrowGrenade.playbackRate");
             dragonModel?.Silhouette(channelDuration);
             DeathwingAssets.SpawnEffect(DeathwingAssets.roarEffect, transform.position, 4f * characterScale, gameObject);
@@ -170,9 +170,11 @@ namespace Deathwing.SkillStates
             {
                 flying = true;
                 cruiseHeight = transform.position.y;
+                // One wingbeat drawn out over the whole run down the lane rather than the cycle looping,
+                // so the clip's end lands with the end of the flight.
                 if (dragon)
                 {
-                    dragon.PlayHeld(DeathwingClips.flightLoop, 0.25f);
+                    dragon.PlayOnce(DeathwingClips.flightLoop, flightDuration, 0.25f);
                 }
 
                 Util.PlaySound(Sounds.wingFlap, gameObject);
@@ -216,10 +218,6 @@ namespace Deathwing.SkillStates
                     segmentsFired++;
                 }
 
-                if (dragon)
-                {
-                    dragon.PlayHeld(DeathwingClips.airborne, 0.2f);
-                }
             }
 
             if (characterMotor)

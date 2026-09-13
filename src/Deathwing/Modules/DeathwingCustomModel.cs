@@ -148,25 +148,37 @@ namespace Deathwing.Modules
         {
             // Left alone during the handover window: the renderer list is still being re-claimed then,
             // and instancing a material it is about to put back would leak one copy a frame.
-            if (hidden || ours.Count == 0 || age <= assertDuration || !Tuning.cameraDither.Value)
+            if (hidden || ours.Count == 0 || age <= assertDuration || !Tuning.cameraDither.Value
+                || Tuning.cameraDitherDistance.Value < 0.05f)
             {
                 return;
             }
 
-            float far = Mathf.Max(0.1f, Tuning.cameraDitherDistance.Value);
+            float far = Tuning.cameraDitherDistance.Value;
             float near = far * 0.25f;
             float target = 1f;
 
             Camera camera = ViewingCamera();
             if (camera)
             {
+                // Measured to his skeleton, not his bounds: the box round a diving dragon with his wings
+                // thrown out takes in a great deal of empty air, and a camera in that air is not in him.
+                Vector3 eye = camera.transform.position;
                 float distance = float.MaxValue;
                 foreach (SkinnedMeshRenderer renderer in ours)
                 {
-                    if (renderer && renderer.sharedMesh)
+                    Transform[] bones = renderer ? renderer.bones : null;
+                    if (bones == null)
                     {
-                        distance = Mathf.Min(distance,
-                            Mathf.Sqrt(renderer.bounds.SqrDistance(camera.transform.position)));
+                        continue;
+                    }
+
+                    foreach (Transform bone in bones)
+                    {
+                        if (bone)
+                        {
+                            distance = Mathf.Min(distance, Vector3.Distance(bone.position, eye));
+                        }
                     }
                 }
 
