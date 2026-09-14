@@ -80,6 +80,8 @@ namespace Deathwing.Modules
         private float[] footFloor;
         private Vector3 lastFoot;
         private bool footTracked;
+        private float footLogged;
+        private bool footSearched;
 
         private void OnEnable()
         {
@@ -337,9 +339,12 @@ namespace Deathwing.Modules
                 return;
             }
 
-            if (footBones == null && !FindFootBones())
+            if (footBones == null)
             {
-                return;
+                if (footSearched || !FindFootBones())
+                {
+                    return;
+                }
             }
 
             Vector3 foot = body.footPosition;
@@ -398,8 +403,13 @@ namespace Deathwing.Modules
                         point.y = Mathf.Max(point.y, foot.y);
                     }
 
-                    DeathwingEffects.DustPuff(point + Vector3.up * (size * 0.02f), size * 0.1f, 1.4f);
+                    DeathwingEffects.DustPuff(point + Vector3.up * (size * 0.03f), size * 0.14f, 1.6f);
                     DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.18f, false, 60f);
+                    if (Time.time > footLogged + 2f)
+                    {
+                        footLogged = Time.time;
+                        Log.Info($"Footfall from {bone.name} at {point} (foot position {foot}, lift seen {lift:0.##}m).");
+                    }
                 }
             }
         }
@@ -432,11 +442,14 @@ namespace Deathwing.Modules
                 }
             }
 
+            footSearched = true;
             if (hits == 0)
             {
+                Log.Warning("No foot bones found on the dragon skeleton; footfall puffs are off.");
                 return false;
             }
 
+            Log.Info($"Footfalls tracking {hits} foot bones.");
             footBones = found;
             footLifted = new bool[found.Length];
             footFloor = new float[found.Length];
@@ -724,7 +737,10 @@ namespace Deathwing.Modules
         private void Place(Transform root)
         {
             Transform parent = root.parent;
-            Vector3 target = (parent ? parent.TransformPoint(rest) : rest) + Vector3.up * rise;
+            // The rig is authored with his feet centred some way to his right of its origin, so he is
+            // slid across in his own frame to stand centred on the capsule.
+            Vector3 local = rest + Vector3.right * Tuning.realModelSide.Value;
+            Vector3 target = (parent ? parent.TransformPoint(local) : local) + Vector3.up * rise;
             if (root.position != target)
             {
                 root.position = target;

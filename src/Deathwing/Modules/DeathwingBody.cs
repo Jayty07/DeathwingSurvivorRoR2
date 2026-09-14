@@ -180,6 +180,7 @@ namespace Deathwing.Modules
 
             ReplaceModel(modelTransform);
             HideItemDisplays(modelTransform);
+            HideChassisFootsteps(modelTransform);
             TrimSkins(modelTransform);
             AddHitBoxes(modelTransform);
         }
@@ -294,6 +295,23 @@ namespace Deathwing.Modules
             {
                 characterModel.itemDisplayRuleSet = null;
                 modelTransform.gameObject.AddComponent<DeathwingItemDisplayHider>();
+            }
+        }
+
+        /// <summary>
+        /// Silences the commando's footsteps. His chassis animator raises a footstep event each time the
+        /// commando's foot would plant, and the handler puts a dust puff and a step sound at the chassis
+        /// feet; the dragon's own feet are watched by his model instead.
+        /// </summary>
+        private static void HideChassisFootsteps(Transform modelTransform)
+        {
+            foreach (FootstepHandler handler in modelTransform.GetComponentsInChildren<FootstepHandler>(true))
+            {
+                handler.footstepDustPrefab = null;
+                handler.enableFootstepDust = false;
+                handler.baseFootstepString = string.Empty;
+                handler.sprintFootstepOverrideString = string.Empty;
+                handler.enabled = false;
             }
         }
 

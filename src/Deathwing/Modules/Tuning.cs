@@ -21,6 +21,7 @@ namespace Deathwing.Modules
         internal static ConfigEntry<bool> registerModel;
         internal static ConfigEntry<float> realModelHeight;
         internal static ConfigEntry<float> realModelLift;
+        internal static ConfigEntry<float> realModelSide;
         internal static ConfigEntry<float> walkCycleSpeed;
         internal static ConfigEntry<float> pawFlatten;
         internal static ConfigEntry<float> headTracking;
@@ -104,9 +105,12 @@ namespace Deathwing.Modules
                 "Hand the real model to the game's character model system, which draws elite, burn and "
                 + "cloak overlays on it and dissolves it on death - at the cost of also subjecting it to "
                 + "the spawn print effect, which can leave it clipped away entirely.");
-            realModelLift = config.Bind("Model", "Real Model Lift", -1f,
+            realModelLift = config.Bind("Model", "Real Model Lift", 0f,
                 "Extra metres to raise the real model after its feet have been placed on the ground. "
                 + "Negative values sink him.");
+            realModelSide = config.Bind("Model", "Real Model Side Offset", -1.5f,
+                "Metres to slide the real model sideways on its capsule; negative moves him to his left. "
+                + "The rig's feet are centred to the right of its origin, so this centres him.");
             dropPod = config.Bind("Model", "Drop Pod", false,
                 "Arrive in the survivor drop pod. Off by default: the pod holds him inside its own "
                 + "geometry while it lands, which is where his footing is worked out from, so he can end "

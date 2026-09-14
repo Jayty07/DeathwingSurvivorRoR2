@@ -22,6 +22,8 @@ namespace Deathwing.Modules
         private static Texture2D softTexture;
         private static Mesh discMesh;
         private static Mesh ringMesh;
+        private static Mesh laneMesh;
+        private static Mesh laneOutlineMesh;
         private static bool softMaterialSearched;
 
         /// <summary>Shaders that alpha-blend a tinted texture with vertex colour, in order of preference.</summary>
@@ -227,7 +229,7 @@ namespace Deathwing.Modules
                 return discMesh;
             }
 
-            discMesh = BuildRadial(0f, 1f, 1f, 0f, "DeathwingDisc");
+            discMesh = BuildRadial(0f, 1f, 8, t => Mathf.Lerp(1f, 0f, t * t), "DeathwingDisc");
             return discMesh;
         }
 
@@ -239,17 +241,97 @@ namespace Deathwing.Modules
                 return ringMesh;
             }
 
-            ringMesh = BuildRadial(0.75f, 1f, 0f, 0f, "DeathwingRing");
+            ringMesh = BuildRadial(0.75f, 1f, 2, t => 1f - Mathf.Abs(t * 2f - 1f), "DeathwingRing");
             return ringMesh;
         }
 
-        private static Mesh BuildRadial(float inner, float outer, float innerAlpha, float outerAlpha, string name)
+        /// <summary>
+        /// A flat unit lane: two wide (x from -1 to 1) and one long (z from 0 to 1), its alpha falling
+        /// off towards the long edges and the far end so it reads as a strip, not an oval.
+        /// </summary>
+        internal static Mesh LaneMesh()
+        {
+            if (laneMesh)
+            {
+                return laneMesh;
+            }
+
+            laneMesh = BuildLane((u, v) =>
+            {
+                float side = 1f - Mathf.Pow(Mathf.Abs(u * 2f - 1f), 3f);
+                float ends = Mathf.Min(1f, Mathf.Min(v, 1f - v) * 8f);
+                return side * ends;
+            }, "DeathwingLane");
+            return laneMesh;
+        }
+
+        /// <summary>The border of a lane: a hard band along its two long edges and across both ends.</summary>
+        internal static Mesh LaneOutlineMesh()
+        {
+            if (laneOutlineMesh)
+            {
+                return laneOutlineMesh;
+            }
+
+            laneOutlineMesh = BuildLane((u, v) =>
+            {
+                float fromSide = (1f - Mathf.Abs(u * 2f - 1f)) / 0.2f;
+                float fromEnd = Mathf.Min(v, 1f - v) / 0.03f;
+                return Mathf.Clamp01(1f - Mathf.Min(fromSide, fromEnd));
+            }, "DeathwingLaneOutline");
+            return laneOutlineMesh;
+        }
+
+        private static Mesh BuildLane(System.Func<float, float, float> alpha, string name)
+        {
+            const int across = 10;
+            const int along = 48;
+            Vector3[] vertices = new Vector3[(across + 1) * (along + 1)];
+            Color[] colors = new Color[vertices.Length];
+            Vector2[] uvs = new Vector2[vertices.Length];
+            for (int j = 0; j <= along; j++)
+            {
+                float v = j / (float)along;
+                for (int i = 0; i <= across; i++)
+                {
+                    float u = i / (float)across;
+                    int index = j * (across + 1) + i;
+                    vertices[index] = new Vector3(u * 2f - 1f, 0f, v);
+                    colors[index] = new Color(1f, 1f, 1f, alpha(u, v));
+                    uvs[index] = new Vector2(u, v);
+                }
+            }
+
+            int[] triangles = new int[across * along * 6];
+            int t = 0;
+            for (int j = 0; j < along; j++)
+            {
+                for (int i = 0; i < across; i++)
+                {
+                    int a = j * (across + 1) + i;
+                    int b = a + across + 1;
+                    triangles[t++] = a;
+                    triangles[t++] = b + 1;
+                    triangles[t++] = b;
+                    triangles[t++] = a;
+                    triangles[t++] = a + 1;
+                    triangles[t++] = b + 1;
+                }
+            }
+
+            return FinishMesh(vertices, colors, uvs, triangles, name);
+        }
+
+        /// <summary>
+        /// A disc or annulus of unit outer radius built from <paramref name="steps"/> concentric bands,
+        /// dense enough to be draped over uneven ground. <paramref name="alpha"/> gives the vertex alpha
+        /// from the inner edge (0) to the outer (1).
+        /// </summary>
+        private static Mesh BuildRadial(float inner, float outer, int steps, System.Func<float, float> alpha, string name)
         {
             const int segments = 48;
-            float middle = (inner + outer) * 0.5f;
             bool hasHole = inner > 0f;
-
-            int rings = hasHole ? 3 : 2;
+            int rings = steps + 1;
             int centre = hasHole ? 0 : 1;
             Vector3[] vertices = new Vector3[segments * rings + centre];
             Color[] colors = new Color[vertices.Length];
@@ -258,30 +340,20 @@ namespace Deathwing.Modules
             if (!hasHole)
             {
                 vertices[0] = Vector3.zero;
-                colors[0] = new Color(1f, 1f, 1f, innerAlpha);
-                uvs[0] = new Vector2(0.5f, 0.5f);
+                colors[0] = new Color(1f, 1f, 1f, alpha(0f));
             }
 
-            for (int i = 0; i < segments; i++)
+            for (int ring = 0; ring < rings; ring++)
             {
-                float angle = i / (float)segments * Mathf.PI * 2f;
-                Vector3 direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-
-                if (hasHole)
+                float t = hasHole ? ring / (float)steps : (ring + 1) / (float)rings;
+                float radius = Mathf.Lerp(inner, outer, t);
+                Color colour = new Color(1f, 1f, 1f, alpha(t));
+                for (int i = 0; i < segments; i++)
                 {
-                    vertices[i] = direction * inner;
-                    colors[i] = new Color(1f, 1f, 1f, innerAlpha);
-                    vertices[segments + i] = direction * middle;
-                    colors[segments + i] = Color.white;
-                    vertices[segments * 2 + i] = direction * outer;
-                    colors[segments * 2 + i] = new Color(1f, 1f, 1f, outerAlpha);
-                }
-                else
-                {
-                    vertices[1 + i] = direction * middle;
-                    colors[1 + i] = new Color(1f, 1f, 1f, Mathf.Lerp(innerAlpha, outerAlpha, 0.4f));
-                    vertices[1 + segments + i] = direction * outer;
-                    colors[1 + segments + i] = new Color(1f, 1f, 1f, outerAlpha);
+                    float angle = i / (float)segments * Mathf.PI * 2f;
+                    int index = centre + ring * segments + i;
+                    vertices[index] = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radius;
+                    colors[index] = colour;
                 }
             }
 
@@ -292,16 +364,16 @@ namespace Deathwing.Modules
 
             int quadRings = rings - 1;
             int[] triangles = new int[segments * quadRings * 6 + (hasHole ? 0 : segments * 3)];
-            int t = 0;
+            int t2 = 0;
 
             if (!hasHole)
             {
                 for (int i = 0; i < segments; i++)
                 {
                     int next = (i + 1) % segments;
-                    triangles[t++] = 0;
-                    triangles[t++] = 1 + next;
-                    triangles[t++] = 1 + i;
+                    triangles[t2++] = 0;
+                    triangles[t2++] = 1 + next;
+                    triangles[t2++] = 1 + i;
                 }
             }
 
@@ -312,15 +384,20 @@ namespace Deathwing.Modules
                 for (int i = 0; i < segments; i++)
                 {
                     int next = (i + 1) % segments;
-                    triangles[t++] = a + i;
-                    triangles[t++] = b + next;
-                    triangles[t++] = b + i;
-                    triangles[t++] = a + i;
-                    triangles[t++] = a + next;
-                    triangles[t++] = b + next;
+                    triangles[t2++] = a + i;
+                    triangles[t2++] = b + next;
+                    triangles[t2++] = b + i;
+                    triangles[t2++] = a + i;
+                    triangles[t2++] = a + next;
+                    triangles[t2++] = b + next;
                 }
             }
 
+            return FinishMesh(vertices, colors, uvs, triangles, name);
+        }
+
+        private static Mesh FinishMesh(Vector3[] vertices, Color[] colors, Vector2[] uvs, int[] triangles, string name)
+        {
             Mesh mesh = new Mesh { name = name, hideFlags = HideFlags.DontUnloadUnusedAsset };
             mesh.vertices = vertices;
             mesh.colors = colors;
@@ -346,12 +423,16 @@ namespace Deathwing.Modules
             GameObject holder = new GameObject("DeathwingDecal");
             holder.transform.SetParent(parent, false);
             holder.transform.localPosition = Vector3.up * 0.15f;
-            holder.transform.localScale = length > 0f
-                ? new Vector3(radius, 1f, length * 0.5f + radius)
-                : new Vector3(radius, 1f, radius);
             if (length > 0f)
             {
-                holder.transform.localPosition += Vector3.forward * (length * 0.5f);
+                // A lane is a strip with its ends softened, not a disc stretched into an oval.
+                mesh = LaneMesh();
+                holder.transform.localScale = new Vector3(radius, 1f, length + radius);
+                holder.transform.localPosition += Vector3.back * (radius * 0.5f);
+            }
+            else
+            {
+                holder.transform.localScale = new Vector3(radius, 1f, radius);
             }
 
             holder.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -359,7 +440,19 @@ namespace Deathwing.Modules
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            Drape(holder, 0.15f);
             return renderer;
+        }
+
+        /// <summary>
+        /// Makes a flat ground mesh follow the terrain under it, as a projected decal would: every
+        /// vertex is dropped onto the surface beneath it and lifted clear by <paramref name="clearance"/>.
+        /// </summary>
+        internal static GroundDrape Drape(GameObject holder, float clearance)
+        {
+            GroundDrape drape = holder.AddComponent<GroundDrape>();
+            drape.clearance = clearance;
+            return drape;
         }
 
         /// <summary>
@@ -386,13 +479,14 @@ namespace Deathwing.Modules
             GameObject rim = new GameObject("Rim");
             rim.transform.SetParent(holder.transform, false);
             rim.transform.localPosition = Vector3.up * 0.2f;
-            rim.AddComponent<MeshFilter>().sharedMesh = RingMesh();
+            rim.AddComponent<MeshFilter>().sharedMesh = length > 0f ? LaneOutlineMesh() : RingMesh();
             MeshRenderer rimRenderer = rim.AddComponent<MeshRenderer>();
             rimRenderer.sharedMaterial = new Material(flame);
             DeathwingAssets.TrySetColor(rimRenderer.sharedMaterial, "_TintColor", DeathwingAssets.fireCore * 1.8f);
             DeathwingAssets.TrySetColor(rimRenderer.sharedMaterial, "_Color", DeathwingAssets.fireCore * 1.8f);
             rimRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             rimRenderer.receiveShadows = false;
+            Drape(rim, 0.2f);
 
             AttachDecal(holder.transform, DiscMesh(), new Color(0.5f, 0.12f, 0.02f, 0.35f), radius, length);
 
@@ -940,6 +1034,7 @@ namespace Deathwing.Modules
                 ringRenderer.sharedMaterial = fire ? new Material(material) : material;
                 ringRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 ringRenderer.receiveShadows = false;
+                DeathwingEffects.Drape(holder, 0.4f);
                 ring = holder.transform;
                 if (fire)
                 {
@@ -1041,6 +1136,100 @@ namespace Deathwing.Modules
 
 namespace Deathwing.Modules
 {
+    /// <summary>
+    /// Drapes a flat mesh over the ground beneath it. Unity's decal projector is not in the game's
+    /// build, so the projection is done by hand: each vertex of the mesh is cast straight down from
+    /// above onto the world and moved to where it lands, a little clear of the surface. The mesh is
+    /// re-draped whenever its holder moves or scales, so closing rings and a marker that follows the
+    /// aim keep hugging slopes, steps and rocks instead of cutting through them.
+    /// </summary>
+    public class GroundDrape : MonoBehaviour
+    {
+        public float clearance = 0.15f;
+        public float reach = 8f;
+
+        private MeshFilter filter;
+        private Mesh template;
+        private Mesh draped;
+        private Vector3[] source;
+        private Vector3[] work;
+        private Matrix4x4 placed;
+
+        private void LateUpdate()
+        {
+            if (!filter)
+            {
+                filter = GetComponent<MeshFilter>();
+                if (!filter)
+                {
+                    return;
+                }
+            }
+
+            Mesh current = filter.sharedMesh;
+            if (!current)
+            {
+                return;
+            }
+
+            if (current != draped)
+            {
+                template = current;
+                source = template.vertices;
+                work = new Vector3[source.Length];
+                if (draped)
+                {
+                    Destroy(draped);
+                }
+
+                draped = Instantiate(template);
+                draped.name = template.name + "Draped";
+                draped.MarkDynamic();
+                filter.sharedMesh = draped;
+                placed = Matrix4x4.zero;
+            }
+
+            Matrix4x4 now = transform.localToWorldMatrix;
+            if (now == placed)
+            {
+                return;
+            }
+
+            placed = now;
+            Redrape();
+        }
+
+        private void Redrape()
+        {
+            for (int i = 0; i < source.Length; i++)
+            {
+                Vector3 flat = source[i];
+                flat.y = 0f;
+                Vector3 world = transform.TransformPoint(flat);
+                Vector3 rest = world + Vector3.up * clearance;
+
+                if (Physics.Raycast(world + Vector3.up * reach, Vector3.down, out RaycastHit hit, reach * 2f,
+                    LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+                {
+                    rest = hit.point + Vector3.up * clearance;
+                }
+
+                work[i] = transform.InverseTransformPoint(rest);
+            }
+
+            draped.vertices = work;
+            draped.RecalculateBounds();
+        }
+
+        private void OnDestroy()
+        {
+            if (draped)
+            {
+                Destroy(draped);
+            }
+        }
+    }
+
     /// <summary>The closing ring of a telegraph; everything else on the holder just sits until it is destroyed.</summary>
     public class TelegraphEffect : MonoBehaviour
     {
@@ -1061,9 +1250,9 @@ namespace Deathwing.Modules
                 float ring = radius * Mathf.Lerp(1.5f, 1f, t);
                 float pulse = 1f + 0.06f * Mathf.Sin(age * 18f);
                 rim.localScale = length > 0f
-                    ? new Vector3(ring * pulse, 1f, (length * 0.5f + ring) * pulse)
+                    ? new Vector3(ring * pulse, 1f, length + ring * pulse)
                     : Vector3.one * (ring * pulse);
-                rim.localPosition = Vector3.up * 0.2f + (length > 0f ? Vector3.forward * (length * 0.5f) : Vector3.zero);
+                rim.localPosition = Vector3.up * 0.2f + (length > 0f ? Vector3.back * (ring * pulse * 0.5f) : Vector3.zero);
             }
 
             if (age >= duration)

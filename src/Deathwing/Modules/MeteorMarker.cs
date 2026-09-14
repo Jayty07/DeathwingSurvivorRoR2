@@ -43,6 +43,7 @@ namespace Deathwing.Modules
             marker.meshRenderer.material = marker.material;
             marker.meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             marker.meshRenderer.receiveShadows = false;
+            DeathwingEffects.Drape(instance, 0.2f);
 
             instance.SetActive(false);
             return marker;
@@ -96,12 +97,13 @@ namespace Deathwing.Modules
             return mesh;
         }
 
-        /// <summary>Lays the marker flat on the surface it is aimed at, at the meteor's blast size.</summary>
+        /// <summary>Lays the marker over the surface it is aimed at, at the meteor's blast size.</summary>
         internal void Show(Vector3 point, Vector3 normal, float blastRadius)
         {
+            // Kept level and left to the drape to follow the surface: tilting it to one normal makes it
+            // cut into any slope that is not a plane.
             radius = blastRadius;
-            transform.position = point + normal * 0.2f;
-            transform.rotation = Quaternion.FromToRotation(Vector3.up, normal);
+            transform.position = point + Vector3.up * 0.2f;
             gameObject.SetActive(true);
         }
 

@@ -98,6 +98,7 @@ namespace Deathwing.Modules
                 DeathwingAssets.TrySetColor(renderer.sharedMaterial, "_Color", DeathwingAssets.fireCore * 1.6f);
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+                DeathwingEffects.Drape(rim, 0.25f);
             }
 
             DeathwingEffects.AttachDecal(transform, DeathwingEffects.DiscMesh(),
