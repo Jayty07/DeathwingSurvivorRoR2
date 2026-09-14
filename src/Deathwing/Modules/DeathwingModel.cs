@@ -317,17 +317,18 @@ namespace Deathwing.Modules
         /// Landing and takeoff are authored in place: hips fixed, wings and legs doing the work, the
         /// travel left to the unit's movement in Heroes. That movement is written into the root here
         /// instead, so the drawing comes down onto, or lifts off from, a capsule that stays put. The
-        /// landing starts landingDrop above rest (rig units, about 1.2 of his height) and settles; the
+        /// landing starts landingDrop above rest (rig units, about 3 of his height) and falls steeply,
+        /// most of it gone by a third of the clip, before settling; the
         /// takeoff stands until takeoffLiftFraction of the clip, then climbs to takeoffRise by its end.
         /// </summary>
-        private const float landingDrop = 360f;
+        private const float landingDrop = 900f;
         private const float takeoffRise = 240f;
         private const float takeoffLiftFraction = 0.55f;
-        private const int rootKeys = 9;
+        private const int rootKeys = 17;
 
         private static Keys Descending(float duration, Vector3 rest)
         {
-            return RootTravel(duration, rest, u => landingDrop * (1f - u) * (1f - u));
+            return RootTravel(duration, rest, u => landingDrop * Mathf.Pow(1f - u, 4f));
         }
 
         private static Keys Rising(float duration, Vector3 rest)
