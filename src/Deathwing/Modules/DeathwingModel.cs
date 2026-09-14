@@ -264,9 +264,10 @@ namespace Deathwing.Modules
                     Keys position = track.position;
                     if (data.bones[track.bone].parent < 0)
                     {
-                        position = clipData.name == DeathwingClips.flightLand
-                            ? Descending(clipData.duration, data.bones[track.bone].localPosition)
-                            : Grounded(position, data.bones[track.bone].localPosition);
+                        Vector3 rest = data.bones[track.bone].localPosition;
+                        position = clipData.name == DeathwingClips.flightLand ? Descending(clipData.duration, rest)
+                            : clipData.name == DeathwingClips.takeoff ? Rising(clipData.duration, rest)
+                            : Grounded(position, rest);
                     }
 
                     SetCurves(clip, path, "localPosition", position, 3);
@@ -313,25 +314,41 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// The landing is authored in place: hips fixed, wings and legs doing the work, the descent
-        /// left to the unit's movement in Heroes. That movement is written into the root here instead:
-        /// it starts this far above rest (rig units, about 1.2 of his height) and comes down through
-        /// the clip, fast at first and settling, so the drawing lands while his capsule stays put.
+        /// Landing and takeoff are authored in place: hips fixed, wings and legs doing the work, the
+        /// travel left to the unit's movement in Heroes. That movement is written into the root here
+        /// instead, so the drawing comes down onto, or lifts off from, a capsule that stays put. The
+        /// landing starts landingDrop above rest (rig units, about 1.2 of his height) and settles; the
+        /// takeoff stands until takeoffLiftFraction of the clip, then climbs to takeoffRise by its end.
         /// </summary>
         private const float landingDrop = 360f;
-        private const int landingKeys = 9;
+        private const float takeoffRise = 240f;
+        private const float takeoffLiftFraction = 0.55f;
+        private const int rootKeys = 9;
 
         private static Keys Descending(float duration, Vector3 rest)
         {
-            float[] times = new float[landingKeys];
-            float[] values = new float[landingKeys * 3];
-            for (int i = 0; i < landingKeys; i++)
+            return RootTravel(duration, rest, u => landingDrop * (1f - u) * (1f - u));
+        }
+
+        private static Keys Rising(float duration, Vector3 rest)
+        {
+            return RootTravel(duration, rest, u =>
             {
-                float u = i / (float)(landingKeys - 1);
-                float lift = landingDrop * (1f - u) * (1f - u);
+                float v = Mathf.InverseLerp(takeoffLiftFraction, 1f, u);
+                return takeoffRise * v * v;
+            });
+        }
+
+        private static Keys RootTravel(float duration, Vector3 rest, System.Func<float, float> lift)
+        {
+            float[] times = new float[rootKeys];
+            float[] values = new float[rootKeys * 3];
+            for (int i = 0; i < rootKeys; i++)
+            {
+                float u = i / (float)(rootKeys - 1);
                 times[i] = u * duration;
                 values[i * 3] = rest.x;
-                values[i * 3 + 1] = rest.y + lift;
+                values[i * 3 + 1] = rest.y + lift(u);
                 values[i * 3 + 2] = rest.z;
             }
 
