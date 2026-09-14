@@ -70,10 +70,16 @@ namespace Deathwing.Modules
         private float silhouetteDuration;
         private float glow = 1f;
         private ParticleSystem embers;
+        private static readonly string[] footBoneNames =
+        {
+            "Bone_LegFrt_Foot_00_L", "Bone_LegFrt_Foot_00_R", "Bone_LegBck_Foot_00_L", "Bone_LegBck_Foot_00_R"
+        };
+
+        private Transform[] footBones;
+        private bool[] footLifted;
+        private float[] footFloor;
         private Vector3 lastFoot;
         private bool footTracked;
-        private float strideTravelled;
-        private int footSide = 1;
 
         private void OnEnable()
         {
@@ -331,6 +337,11 @@ namespace Deathwing.Modules
                 return;
             }
 
+            if (footBones == null && !FindFootBones())
+            {
+                return;
+            }
+
             Vector3 foot = body.footPosition;
             if (!footTracked)
             {
@@ -346,30 +357,94 @@ namespace Deathwing.Modules
             bool grounded = body.characterMotor
                 ? body.characterMotor.isGrounded
                 : Physics.Raycast(foot + Vector3.up * 0.5f, Vector3.down, 1.5f, LayerIndex.world.mask);
-            if (!grounded)
-            {
-                strideTravelled = 0f;
-                return;
-            }
-
             float size = Mathf.Max(1f, Tuning.realModelHeight.Value);
-            strideTravelled += moved.magnitude;
-            if (strideTravelled < size * 0.45f)
+            bool walking = grounded && moved.sqrMagnitude > 1e-6f;
+
+            // Each foot is watched against its own floor, the lowest it has been seen (the fore and
+            // hind feet rest at different heights in the rig): once the clip has swung it clear, the
+            // frame it comes back down is its footfall, and the puff is put where that foot actually is.
+            for (int i = 0; i < footBones.Length; i++)
             {
-                return;
+                Transform bone = footBones[i];
+                if (!bone)
+                {
+                    continue;
+                }
+
+                float height = bone.position.y - foot.y;
+                footFloor[i] = height < footFloor[i] ? height : Mathf.Lerp(footFloor[i], height, Time.deltaTime * 0.5f);
+                float lift = height - footFloor[i];
+                if (!walking)
+                {
+                    footLifted[i] = false;
+                    continue;
+                }
+
+                if (lift > size * 0.035f)
+                {
+                    footLifted[i] = true;
+                }
+                else if (footLifted[i] && lift < size * 0.012f)
+                {
+                    footLifted[i] = false;
+                    Vector3 point = bone.position;
+                    if (Physics.Raycast(point + Vector3.up * (size * 0.1f), Vector3.down, out RaycastHit hit,
+                        size * 0.3f, LayerIndex.world.mask))
+                    {
+                        point = hit.point;
+                    }
+                    else
+                    {
+                        point.y = foot.y;
+                    }
+
+                    DeathwingEffects.DustPuff(point, size * 0.07f, 1.2f);
+                    DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.18f, false, 60f);
+                }
+            }
+        }
+
+        private bool FindFootBones()
+        {
+            Transform[] found = new Transform[footBoneNames.Length];
+            int hits = 0;
+            foreach (SkinnedMeshRenderer renderer in ours)
+            {
+                Transform[] bones = renderer ? renderer.bones : null;
+                if (bones == null)
+                {
+                    continue;
+                }
+
+                foreach (Transform bone in bones)
+                {
+                    if (!bone)
+                    {
+                        continue;
+                    }
+
+                    int index = System.Array.IndexOf(footBoneNames, bone.name);
+                    if (index >= 0 && !found[index])
+                    {
+                        found[index] = bone;
+                        hits++;
+                    }
+                }
             }
 
-            strideTravelled = 0f;
-            footSide = -footSide;
-            Vector3 side = body.transform.right * (footSide * size * 0.14f);
-            Vector3 point = foot + side + body.transform.forward * (size * 0.1f);
-            if (Physics.Raycast(point + Vector3.up * 1f, Vector3.down, out RaycastHit hit, 3f, LayerIndex.world.mask))
+            if (hits == 0)
             {
-                point = hit.point;
+                return false;
             }
 
-            DeathwingEffects.DustPuff(point, size * 0.09f, 1.2f);
-            DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.18f, false, 60f);
+            footBones = found;
+            footLifted = new bool[found.Length];
+            footFloor = new float[found.Length];
+            for (int i = 0; i < footFloor.Length; i++)
+            {
+                footFloor[i] = float.MaxValue;
+            }
+            return true;
         }
 
         /// <summary>The local camera looking at this body, if it is the one being played or spectated.</summary>
