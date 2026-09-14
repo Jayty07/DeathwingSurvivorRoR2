@@ -265,8 +265,8 @@ namespace Deathwing.Modules
                     if (data.bones[track.bone].parent < 0)
                     {
                         Vector3 rest = data.bones[track.bone].localPosition;
-                        position = clipData.name == DeathwingClips.flightLand ? Descending(clipData.duration, rest)
-                            : clipData.name == DeathwingClips.takeoff ? Rising(clipData.duration, rest)
+                        position = clipData.name == DeathwingClips.flightLand
+                            ? Descending(clipData.duration, rest)
                             : Grounded(position, rest);
                     }
 
@@ -314,21 +314,18 @@ namespace Deathwing.Modules
         }
 
         /// <summary>
-        /// Landing and takeoff are authored in place: hips fixed, wings and legs doing the work, the
-        /// travel left to the unit's movement in Heroes. That movement is written into the root here
-        /// instead, so the drawing comes down onto, or lifts off from, a capsule that stays put. The
-        /// landing clip glides with the legs tucked, reaches for the ground at landingTouch (feet at
-        /// full stretch, some landingStretch below where they stand), and has absorbed the impact by
-        /// landingSettle: so the root falls landingDrop (rig units, about 10 of his height) to the
-        /// touchdown, sinks the stretch as the legs take the weight, and is at rest from there; the
-        /// takeoff stands until takeoffLiftFraction of the clip, then climbs to takeoffRise by its end.
+        /// The landing is authored in place: hips fixed, wings and legs doing the work, the descent
+        /// left to the unit's movement in Heroes. That movement is written into the root here instead,
+        /// so the drawing comes down onto a capsule that stays put. The clip glides with the legs
+        /// tucked, reaches for the ground at landingTouch (feet at full stretch, some landingStretch
+        /// below where they stand), and has absorbed the impact by landingSettle: so the root falls
+        /// landingDrop (rig units, about 10 of his height) to the touchdown, sinks the stretch as the
+        /// legs take the weight, and is at rest from there.
         /// </summary>
         private const float landingDrop = 3000f;
         private const float landingTouch = 0.70f;
         private const float landingSettle = 0.78f;
         private const float landingStretch = 155f;
-        private const float takeoffRise = 240f;
-        private const float takeoffLiftFraction = 0.55f;
         private const int rootKeys = 51;
 
         private static Keys Descending(float duration, Vector3 rest)
@@ -341,15 +338,6 @@ namespace Deathwing.Modules
                 }
 
                 return landingStretch * Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(landingTouch, landingSettle, u));
-            });
-        }
-
-        private static Keys Rising(float duration, Vector3 rest)
-        {
-            return RootTravel(duration, rest, u =>
-            {
-                float v = Mathf.InverseLerp(takeoffLiftFraction, 1f, u);
-                return takeoffRise * v * v;
             });
         }
 

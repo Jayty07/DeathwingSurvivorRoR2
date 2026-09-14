@@ -18,11 +18,13 @@ namespace Deathwing.SkillStates
         public static float takeoffDuration = 3f;
         public static float hoverDrift = -0.6f;
         /// <summary>
-        /// The takeoff clip stands him for its first half and rears him skyward through the second. The
-        /// rise is drawn, written into the clip's root from this fraction of the windup on; his body
-        /// stays planted on the ground until the clip ends and he vanishes.
+        /// Read from the takeoff clip: he rears and roars for the first 40%, crouches and gathers himself
+        /// to 90%, and in the last tenth explodes upward, hind legs driving down as the torso leaves. His
+        /// body follows that: planted until liftStartFraction, then launched, building to liftSpeed
+        /// (pre-scale) as the clip ends and he vanishes.
         /// </summary>
-        public static float liftStartFraction = 0.55f;
+        public static float liftStartFraction = 0.9f;
+        public static float liftSpeed = 14f;
         /// <summary>Grace period before the key can end the flight, so one tap cannot cancel it.</summary>
         public static float landDelay = 0.5f;
         public static float fireballSpeed = 90f;
@@ -284,14 +286,29 @@ namespace Deathwing.SkillStates
         {
             if (!airborne)
             {
-                if (!lifting && fixedAge >= takeoffDuration * liftStartFraction)
+                float liftStart = takeoffDuration * liftStartFraction;
+                if (fixedAge < liftStart)
+                {
+                    // Planted through the windup: only whatever gravity is doing to him is kept.
+                    return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
+                }
+
+                if (!lifting)
                 {
                     lifting = true;
+                    characterMotor.useGravity = false;
+                    if (characterMotor.Motor)
+                    {
+                        characterMotor.Motor.ForceUnground();
+                    }
+
                     DeathwingEffects.DustPuff(characterBody.footPosition, 6f * characterScale);
                 }
 
-                // Planted through the windup: only whatever gravity is doing to him is kept.
-                return new Vector3(0f, Mathf.Min(0f, characterMotor.velocity.y), 0f);
+                // The push-off: fast from the first step and still building as the clip ends, so he
+                // leaves the ground with the legs rather than floating up after them.
+                float climb = Mathf.Sqrt(Mathf.InverseLerp(liftStart, takeoffDuration, fixedAge));
+                return Vector3.up * (liftSpeed * characterScale * climb);
             }
 
             Vector3 velocity = Vector3.up * hoverDrift;
