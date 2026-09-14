@@ -1,0 +1,14 @@
+{
+  "name": "Deathwing",
+  "version_number": "1.0.0",
+  "website_url": "",
+  "description": "Playable Deathwing: a slow, armored survivor with fire and rock attacks, plus flight and a dive slam.",
+  "dependencies": [
+    "bbepis-BepInExPack-5.4.2100",
+    "RiskofThunder-R2API_Core-5.1.5",
+    "RiskofThunder-R2API_ContentManagement-1.0.7",
+    "RiskofThunder-R2API_Prefab-1.0.5",
+    "RiskofThunder-R2API_Language-1.0.1",
+    "RiskofThunder-R2API_RecalculateStats-1.4.1"
+  ]
+}

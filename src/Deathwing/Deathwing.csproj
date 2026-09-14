@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>Deathwing</AssemblyName>
+    <RootNamespace>Deathwing</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>portable</DebugType>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <NoWarn>CS0436;CS0618;NU1701;MSB3277</NoWarn>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" />
+    <PackageReference Include="RiskOfRain2.GameLibs" Version="1.4.1-r.0" PrivateAssets="all" Publicize="true" />
+    <PackageReference Include="R2API.Core" Version="5.3.0" />
+    <PackageReference Include="R2API.ContentManagement" Version="1.0.11" />
+    <PackageReference Include="R2API.Prefab" Version="1.1.1" />
+    <PackageReference Include="R2API.Language" Version="1.1.0" />
+    <PackageReference Include="R2API.RecalculateStats" Version="1.6.6" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    Art is embedded when it is present, so a release is a single file to install, and skipped when it
+    is not, so the mod still builds and runs (with the placeholder model and the chassis' icons) from
+    a clone that carries no art. art/ is gitignored: it is not ours to redistribute.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/deathwing.dwm" LogicalName="Deathwing.deathwing.dwm"
+                     Condition="Exists('$(MSBuildThisFileDirectory)../../art/deathwing.dwm')" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/icons/*.png" LogicalName="Deathwing.Icons.%(Filename).png" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../art/sounds/*.wav" LogicalName="Deathwing.Sounds.%(Filename).wav" />
+  </ItemGroup>
+
+  <!-- Optional: pass -p:GameDir="/path/to/Risk of Rain 2" to install the plugin on build. -->
+  <Target Name="CopyToGame" AfterTargets="Build" Condition="'$(GameDir)' != '' And Exists('$(GameDir)/BepInEx/plugins')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)/BepInEx/plugins/Deathwing" />
+  </Target>
+
+</Project>
