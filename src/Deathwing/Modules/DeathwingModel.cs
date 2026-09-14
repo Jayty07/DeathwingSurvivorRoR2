@@ -261,9 +261,15 @@ namespace Deathwing.Modules
                 foreach (TrackData track in clipData.tracks)
                 {
                     string path = paths[track.bone];
-                    SetCurves(clip, path, "localPosition",
-                        data.bones[track.bone].parent < 0 ? Grounded(track.position, data.bones[track.bone].localPosition) : track.position,
-                        3);
+                    Keys position = track.position;
+                    if (data.bones[track.bone].parent < 0)
+                    {
+                        position = clipData.name == DeathwingClips.flightLand
+                            ? Descending(clipData.duration, data.bones[track.bone].localPosition)
+                            : Grounded(position, data.bones[track.bone].localPosition);
+                    }
+
+                    SetCurves(clip, path, "localPosition", position, 3);
                     SetCurves(clip, path, "localRotation", track.rotation, 4);
                     SetCurves(clip, path, "localScale", track.scale, 3);
                 }
@@ -304,6 +310,32 @@ namespace Deathwing.Modules
             }
 
             return new Keys { times = keys.times, values = values };
+        }
+
+        /// <summary>
+        /// The landing is authored in place: hips fixed, wings and legs doing the work, the descent
+        /// left to the unit's movement in Heroes. That movement is written into the root here instead:
+        /// it starts this far above rest (rig units, about 1.2 of his height) and comes down through
+        /// the clip, fast at first and settling, so the drawing lands while his capsule stays put.
+        /// </summary>
+        private const float landingDrop = 360f;
+        private const int landingKeys = 9;
+
+        private static Keys Descending(float duration, Vector3 rest)
+        {
+            float[] times = new float[landingKeys];
+            float[] values = new float[landingKeys * 3];
+            for (int i = 0; i < landingKeys; i++)
+            {
+                float u = i / (float)(landingKeys - 1);
+                float lift = landingDrop * (1f - u) * (1f - u);
+                times[i] = u * duration;
+                values[i * 3] = rest.x;
+                values[i * 3 + 1] = rest.y + lift;
+                values[i * 3 + 2] = rest.z;
+            }
+
+            return new Keys { times = times, values = values };
         }
 
         private static readonly string[] components = { ".x", ".y", ".z", ".w" };
