@@ -21,7 +21,8 @@ namespace Deathwing.SkillStates
         /// still reporting the last step it ran, so an immediate check lands him in the air.
         /// </summary>
         public static float minDescentDuration = 0.15f;
-        public static float remoteGroundProbe = 1.5f;
+        /// <summary>How far under his feet counts as touching down, pre-scale; a descent step is 0.75m.</summary>
+        public static float groundProbe = 0.8f;
 
         private float landingDuration = minLandingDuration;
         private float landedAt;
@@ -58,7 +59,7 @@ namespace Deathwing.SkillStates
                     characterMotor.moveDirection = Vector3.zero;
                 }
 
-                if ((fixedAge >= minDescentDuration && TouchingGround()) || fixedAge >= maxDescentDuration)
+                if ((fixedAge >= minDescentDuration && FeetOnGround(groundProbe)) || fixedAge >= maxDescentDuration)
                 {
                     Land();
                 }
@@ -77,32 +78,6 @@ namespace Deathwing.SkillStates
             {
                 outer.SetNextStateToMain();
             }
-        }
-
-        /// <summary>
-        /// Whether he has come down on something. The owning machine asks the motor; on every other
-        /// client the motor is not stepped at all and its grounded flag is stale, so the ground is
-        /// probed under his feet instead - otherwise the landing beat plays the instant flight ends.
-        /// </summary>
-        private bool TouchingGround()
-        {
-            if (!characterMotor)
-            {
-                return false;
-            }
-
-            if (characterMotor.hasEffectiveAuthority)
-            {
-                return characterMotor.isGrounded;
-            }
-
-            Vector3 feet = characterBody ? characterBody.footPosition : transform.position;
-            return Physics.Raycast(
-                feet + Vector3.up * 0.5f,
-                Vector3.down,
-                remoteGroundProbe * Mathf.Max(characterScale, 1f),
-                LayerIndex.world.mask,
-                QueryTriggerInteraction.Ignore);
         }
 
         private void Land()

@@ -33,7 +33,7 @@ namespace Deathwing.SkillStates
         public static float maxDescentDuration = 8f;
         public static float minDescentDuration = 0.15f;
         public static float minLandingDuration = 0.4f;
-        public static float remoteGroundProbe = 1.5f;
+        public static float groundProbe = 0.8f;
 
         private float channelDuration;
         private float flightDuration;
@@ -227,31 +227,10 @@ namespace Deathwing.SkillStates
             }
 
             float dropping = fixedAge - descentStartedAt;
-            if ((dropping >= minDescentDuration && TouchingGround()) || dropping >= maxDescentDuration)
+            if ((dropping >= minDescentDuration && FeetOnGround(groundProbe)) || dropping >= maxDescentDuration)
             {
                 Land();
             }
-        }
-
-        private bool TouchingGround()
-        {
-            if (!characterMotor)
-            {
-                return false;
-            }
-
-            if (characterMotor.hasEffectiveAuthority)
-            {
-                return characterMotor.isGrounded;
-            }
-
-            Vector3 feet = characterBody ? characterBody.footPosition : transform.position;
-            return Physics.Raycast(
-                feet + Vector3.up * 0.5f,
-                Vector3.down,
-                remoteGroundProbe * Mathf.Max(characterScale, 1f),
-                LayerIndex.world.mask,
-                QueryTriggerInteraction.Ignore);
         }
 
         private void Land()

@@ -133,6 +133,26 @@ namespace Deathwing.SkillStates
             Object.Destroy(emitterObject, duration + 0.5f);
         }
 
+        /// <summary>
+        /// Whether his feet are actually on something, read from the world rather than the motor: the
+        /// motor's grounded flag lingers from before a flight force-ungrounded him, and on a machine
+        /// that does not own him it is never stepped at all, so it alone has him land in mid-air. The
+        /// probe is a short one under his capsule, so a ledge far below does not count as touching down.
+        /// </summary>
+        protected bool FeetOnGround(float probe)
+        {
+            Vector3 feet = characterBody ? characterBody.footPosition : transform.position;
+            float clearance = 0.5f * Mathf.Max(characterScale, 1f);
+            return Physics.SphereCast(
+                feet + Vector3.up * clearance,
+                0.3f * Mathf.Max(characterScale, 1f),
+                Vector3.down,
+                out _,
+                clearance + probe * Mathf.Max(characterScale, 1f),
+                LayerIndex.world.mask,
+                QueryTriggerInteraction.Ignore);
+        }
+
         /// <summary>Projects a point onto the ground so ground-based effects do not float or sink.</summary>
         protected static Vector3 GroundPosition(Vector3 position, float maxDrop = 30f)
         {

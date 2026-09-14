@@ -261,7 +261,9 @@ namespace Deathwing.Modules
                 foreach (TrackData track in clipData.tracks)
                 {
                     string path = paths[track.bone];
-                    SetCurves(clip, path, "localPosition", track.position, 3);
+                    SetCurves(clip, path, "localPosition",
+                        data.bones[track.bone].parent < 0 ? Grounded(track.position, data.bones[track.bone].localPosition) : track.position,
+                        3);
                     SetCurves(clip, path, "localRotation", track.rotation, 4);
                     SetCurves(clip, path, "localScale", track.scale, 3);
                 }
@@ -271,6 +273,37 @@ namespace Deathwing.Modules
             }
 
             return clips;
+        }
+
+        /// <summary>
+        /// Shifts a root translation track so the clip's last frame puts the root where the rig rests.
+        /// Several clips (the dive-to-land most of all) are authored playing out far from the origin,
+        /// which would leave him acting them out well away from his capsule; the motion is kept as
+        /// authored, only moved so it finishes on him.
+        /// </summary>
+        private static Keys Grounded(Keys keys, Vector3 rest)
+        {
+            if (keys == null || keys.times.Length == 0)
+            {
+                return keys;
+            }
+
+            int last = (keys.times.Length - 1) * 3;
+            Vector3 shift = rest - new Vector3(keys.values[last], keys.values[last + 1], keys.values[last + 2]);
+            if (shift.sqrMagnitude < 1e-4f)
+            {
+                return keys;
+            }
+
+            float[] values = (float[])keys.values.Clone();
+            for (int i = 0; i < values.Length; i += 3)
+            {
+                values[i] += shift.x;
+                values[i + 1] += shift.y;
+                values[i + 2] += shift.z;
+            }
+
+            return new Keys { times = keys.times, values = values };
         }
 
         private static readonly string[] components = { ".x", ".y", ".z", ".w" };
