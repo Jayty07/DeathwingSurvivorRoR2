@@ -32,7 +32,6 @@ namespace Deathwing.SkillStates
         public static float descentSpeed = 45f;
         public static float maxDescentDuration = 8f;
         public static float minDescentDuration = 0.15f;
-        public static float minLandingDuration = 0.4f;
         public static float groundProbe = 0.8f;
 
         private float channelDuration;
@@ -44,10 +43,7 @@ namespace Deathwing.SkillStates
         private bool climbing;
         private bool flying;
         private bool descending;
-        private bool landed;
         private float descentStartedAt;
-        private float landedAt;
-        private float landingDuration = minLandingDuration;
 
         private bool IsChannelling => fixedAge < channelDuration;
         private bool IsFlying => !IsChannelling && fixedAge < channelDuration + flightDuration;
@@ -104,22 +100,9 @@ namespace Deathwing.SkillStates
             {
                 Fly();
             }
-            else if (!landed)
-            {
-                Descend();
-            }
             else
             {
-                // Rooted until the landing beat has played out.
-                if (characterMotor)
-                {
-                    characterMotor.velocity = Vector3.zero;
-                }
-
-                if (isAuthority && fixedAge - landedAt >= landingDuration)
-                {
-                    outer.SetNextStateToMain();
-                }
+                Descend();
             }
         }
 
@@ -203,8 +186,8 @@ namespace Deathwing.SkillStates
         }
 
         /// <summary>
-        /// Dropped at the end of the lane with no say in where he goes, wings out, and rooted the moment
-        /// he touches down for as long as the landing clip runs.
+        /// Dropped at the end of the lane with no say in where he goes, wings out; the moment he touches
+        /// down the ground takes the hit and he is his own again, with no landing beat.
         /// </summary>
         private void Descend()
         {
@@ -235,27 +218,13 @@ namespace Deathwing.SkillStates
 
         private void Land()
         {
-            landed = true;
-            landedAt = fixedAge;
-
             if (characterMotor)
             {
                 characterMotor.useGravity = true;
                 characterMotor.velocity = Vector3.zero;
             }
 
-            landingDuration = dragon
-                ? Mathf.Max(minLandingDuration, dragon.ClipLength(DeathwingClips.flightLand))
-                : minLandingDuration;
-
-            if (dragon)
-            {
-                dragon.Release(DeathwingClips.flightLand, landingDuration);
-            }
-            else
-            {
-                PlayCrossfade("Body", "Land", 0.1f);
-            }
+            dragon?.Release();
 
             Util.PlaySound(Sounds.diveImpact, gameObject);
             DeathwingVoice.Play(DeathwingVoice.stoneImpact, gameObject, 0.7f, false, 110f);
@@ -269,6 +238,11 @@ namespace Deathwing.SkillStates
             }
 
             dragonModel?.Silhouette(0.6f);
+
+            if (isAuthority)
+            {
+                outer.SetNextStateToMain();
+            }
         }
 
         private void FireSegment(int index)
