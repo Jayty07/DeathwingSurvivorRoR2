@@ -372,7 +372,7 @@ namespace Deathwing.Modules
                 }
 
                 float height = bone.position.y - foot.y;
-                footFloor[i] = height < footFloor[i] ? height : Mathf.Lerp(footFloor[i], height, Time.deltaTime * 0.5f);
+                footFloor[i] = height < footFloor[i] ? height : Mathf.Lerp(footFloor[i], height, Time.deltaTime * 0.15f);
                 float lift = height - footFloor[i];
                 if (!walking)
                 {
@@ -388,17 +388,17 @@ namespace Deathwing.Modules
                 {
                     footLifted[i] = false;
                     Vector3 point = bone.position;
-                    if (Physics.Raycast(point + Vector3.up * (size * 0.1f), Vector3.down, out RaycastHit hit,
-                        size * 0.3f, LayerIndex.world.mask))
+                    if (Physics.Raycast(point + Vector3.up * (size * 0.3f), Vector3.down, out RaycastHit hit,
+                        size * 0.6f, LayerIndex.world.mask))
                     {
                         point = hit.point;
                     }
                     else
                     {
-                        point.y = foot.y;
+                        point.y = Mathf.Max(point.y, foot.y);
                     }
 
-                    DeathwingEffects.DustPuff(point, size * 0.07f, 1.2f);
+                    DeathwingEffects.DustPuff(point + Vector3.up * (size * 0.02f), size * 0.1f, 1.4f);
                     DeathwingVoice.Play(DeathwingVoice.stoneImpact, body.gameObject, 0.18f, false, 60f);
                 }
             }

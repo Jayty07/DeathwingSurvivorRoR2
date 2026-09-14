@@ -142,13 +142,26 @@ namespace Deathwing.SkillStates
         protected bool FeetOnGround(float probe)
         {
             Vector3 feet = characterBody ? characterBody.footPosition : transform.position;
-            float clearance = 0.5f * Mathf.Max(characterScale, 1f);
+            float scale = Mathf.Max(characterScale, 1f);
+            float reach = probe * scale;
+
+            // A thin ray from his centre first: a cast that begins inside geometry reports nothing, and
+            // a sphere the size of his paw does exactly that against a wall he is standing beside or a
+            // floor he was already on when the flight ended.
+            Vector3 centre = characterBody ? characterBody.corePosition : feet + Vector3.up * scale;
+            float toFeet = Mathf.Max(0f, centre.y - feet.y);
+            if (Physics.Raycast(centre, Vector3.down, toFeet + reach, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+            {
+                return true;
+            }
+
+            float clearance = 0.5f * scale;
             return Physics.SphereCast(
                 feet + Vector3.up * clearance,
-                0.3f * Mathf.Max(characterScale, 1f),
+                0.3f * scale,
                 Vector3.down,
                 out _,
-                clearance + probe * Mathf.Max(characterScale, 1f),
+                clearance + reach,
                 LayerIndex.world.mask,
                 QueryTriggerInteraction.Ignore);
         }
